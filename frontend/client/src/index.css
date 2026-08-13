@@ -1,0 +1,131 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Lora:ital,wght@0,400..700;1,400..700&family=DM+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  
+  --font-sans: 'Lora', serif;
+  --font-serif: 'Playfair Display', serif;
+  --font-mono: 'DM Mono', monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+}
+
+:root {
+  /* --- LIGHT MODE (Warm Parchment) --- */
+  --background: #faf5ec;
+  --foreground: #1e140a;
+  --card: #fffcf7;
+  --card-foreground: #1e140a;
+  --popover: #fffcf7;
+  --popover-foreground: #1e140a;
+  
+  --primary: #c9623f; 
+  --primary-foreground: #fffcf7;
+  --secondary: #d4a853; 
+  --secondary-foreground: #1e140a;
+  --muted: #f3eae0;
+  --muted-foreground: #8c7060;
+  --accent: #fdf5e8;
+  --accent-foreground: #c9623f;
+  
+  --destructive: #b85c5c; 
+  --destructive-foreground: #fffcf7;
+  
+  --border: rgba(180, 120, 80, 0.22);
+  --input: rgba(180, 120, 80, 0.22);
+  --ring: rgba(201, 98, 63, 0.4);
+  --radius: 0.85rem; 
+
+  --chart-1: #c9623f; 
+  --chart-2: #d4a853; 
+  --chart-3: #7a9e7e; 
+  --chart-4: #e08c3a; 
+  --chart-5: #b85c5c; 
+}
+
+.dark {
+  /* --- DARK MODE (Charcoal Brown) --- */
+  --background: #120d07;
+  --foreground: #f5ede0;
+  --card: #221a0e;
+  --card-foreground: #f5ede0;
+  --popover: #221a0e;
+  --popover-foreground: #f5ede0;
+  
+  --primary: #c9623f; 
+  --primary-foreground: #fffcf7;
+  --secondary: #d4a853; 
+  --secondary-foreground: #1e140a;
+  --muted: #261808;
+  --muted-foreground: #8c7a64;
+  --accent: #261808;
+  --accent-foreground: #d4a853;
+  
+  --destructive: #b85c5c; 
+  --destructive-foreground: #fffcf7;
+  
+  --border: rgba(201, 98, 63, 0.16);
+  --input: rgba(201, 98, 63, 0.16);
+  --ring: rgba(201, 98, 63, 0.4);
+
+  --chart-1: #c9623f;
+  --chart-2: #d4a853;
+  --chart-3: #7a9e7e;
+  --chart-4: #e08c3a;
+  --chart-5: #b85c5c;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans transition-colors duration-300; 
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif; 
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [type="button"]:not(:disabled),
+  [type="submit"]:not(:disabled),
+  [type="reset"]:not(:disabled),
+  a[href],
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled) {
+    @apply cursor-pointer;
+  }
+}
