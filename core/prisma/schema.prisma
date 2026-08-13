@@ -38,6 +38,8 @@ model Lesson {
   title       String
   description String?
   signLabel   String     // e.g. "A", "hello"
+  order       Int
+  createdAt   DateTime
   duration    Int        @default(5)
   progress    Progress[]
 }
