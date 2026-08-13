@@ -4,7 +4,7 @@ import {
   BookOpen, Award, Camera, LayoutDashboard, Eye, Flame, Globe, Home,
   Activity, Zap, Lock, LogIn, Moon, Bell, BarChart2, Play, Target,
   TrendingUp, Shield, Trophy, Users, Volume2, Settings, X, User as UserIcon,
-  Sliders, CheckCircle, EyeOff,
+  Sliders, CheckCircle, EyeOff, UserPlus
 } from "lucide-react";
 import { useAuthContext } from "../contexts/AuthContext";
 import { ErrorBanner } from "../components/ErrorBanner";
@@ -27,7 +27,7 @@ const useTheme = () => ({
 
 type Role = "student" | "mentor";
 
-/* ── CursorGrid ── */
+/* ── CursorGrid (Reused from Login) ── */
 function CursorGrid({
   cellSize    = 70,
   color       = ACCENT,
@@ -175,7 +175,7 @@ function CursorGrid({
   return <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 0 }} />;
 }
 
-/* ── Sign loading ── */
+/* ── Sign loading (Reused from Login) ── */
 const SIGN_ICONS: { letter: string; icon: React.ElementType }[] = [
   { letter: "A", icon: Award }, { letter: "B", icon: BookOpen }, { letter: "C", icon: Camera },
   { letter: "D", icon: LayoutDashboard }, { letter: "E", icon: Eye }, { letter: "F", icon: Flame },
@@ -266,7 +266,7 @@ function SignLoadingScreen({ onComplete }: { onComplete: () => void }) {
       </div>
 
       <p style={{ color: T.muted, fontSize: 12, marginTop: 20, letterSpacing: 0.3 }}>
-        {done ? "All set! Taking you in…" : "Preparing your sign library…"}
+        {done ? "Account created! Taking you in…" : "Preparing your sign library…"}
       </p>
 
       <style>{`@keyframes signPop { 0%{opacity:0;transform:scale(.72)} 100%{opacity:1;transform:scale(1)} }`}</style>
@@ -274,34 +274,34 @@ function SignLoadingScreen({ onComplete }: { onComplete: () => void }) {
   );
 }
 
-/* ── LoginPage ── */
-export default function Login() {
+/* ── RegisterPage ── */
+export default function Register() {
   const [, setLocation] = useLocation();
-  const { login, error, clearError } = useAuthContext();
+  // Assuming your AuthContext exposes a register function along with login
+  const { register, error, clearError } = useAuthContext() as any; 
   const T = useTheme();
 
   const [role,        setRole]       = useState<Role>("student");
-  const [email,       setEmail]      = useState("student@example.com");
-  const [password,    setPassword]   = useState("password");
+  const [firstName,   setFirstName]  = useState("");
+  const [lastName,    setLastName]   = useState("");
+  const [username,    setUsername]   = useState("");
+  const [email,       setEmail]      = useState("");
+  const [password,    setPassword]   = useState("");
   
   const [showPw,      setShowPw]     = useState(false);
   const [showLoader,  setShowLoader] = useState(false);
   const [focused,     setFocused]    = useState<string | null>(null);
 
-  // Auto-fill demo credentials based on the selected role tab
-  useEffect(() => {
-    setEmail(`${role}@example.com`);
-  }, [role]);
-
-  const handleLoginClick = () => {
-    if (!email || !password) return;
-    clearError();
+  const handleRegisterClick = () => {
+    if (!email || !password || !firstName || !lastName || !username) return;
+    clearError?.();
     setShowLoader(true);
   };
 
-  const executeApiLogin = async () => {
+  const executeApiRegister = async () => {
     try {
-      await login(email, password);
+      // Pass all collected data to your backend schema mapping
+      await register(email, username, password, role, firstName, lastName);
       setLocation("/dashboard");
     } catch (err) {
       console.error(err);
@@ -331,21 +331,18 @@ export default function Login() {
       transition: "background .3s",
       display: "flex", alignItems: "center", justifyContent: "center",
     }}>
-      {/* The loader now triggers executeApiLogin when its animation finishes */}
-      {showLoader && <SignLoadingScreen onComplete={executeApiLogin} />}
+      {/* The loader triggers executeApiRegister when animation finishes */}
+      {showLoader && <SignLoadingScreen onComplete={executeApiRegister} />}
 
-      {/* Full-page cursor grid */}
       <CursorGrid
         cellSize={70} color={ACCENT} radius={450} falloff="smooth"
         holdTime={400} fadeDuration={900} lineWidth={1.1}
         maxOpacity={T.dark ? 0.72 : 0.5} gridOpacity={0} clickPulse pulseSpeed={650}
       />
 
-      {/* Ambient glow blobs */}
       <div style={{ position: "absolute", width: 600, height: 600, borderRadius: "50%", background: `radial-gradient(circle,rgba(99,102,241,${T.dark ? "0.18" : "0.14"}) 0%,transparent 70%)`, top: -160, left: -120, pointerEvents: "none" }} />
       <div style={{ position: "absolute", width: 500, height: 500, borderRadius: "50%", background: `radial-gradient(circle,rgba(56,189,248,${T.dark ? "0.12" : "0.1"}) 0%,transparent 70%)`, bottom: -140, right: -80, pointerEvents: "none" }} />
 
-      {/* Centred two-column layout */}
       <div style={{
         position: "relative", zIndex: 1,
         display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center",
@@ -366,30 +363,18 @@ export default function Login() {
           </div>
 
           <div style={{ width: 80, height: 80, marginBottom: 24, borderRadius: 22, background: "rgba(99,102,241,0.15)", border: "2px solid rgba(99,102,241,0.32)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 32px rgba(99,102,241,0.3)" }}>
-            <BookOpen size={36} color={ACCENT} />
+            <UserPlus size={36} color={ACCENT} />
           </div>
 
           <h1 style={{ color: T.text, fontWeight: 900, fontSize: "clamp(28px,4vw,50px)", lineHeight: 1.12, letterSpacing: -1.5, margin: "0 0 18px" }}>
-            Learn Sign Language<br />
+            Join the <br />
             <span style={{ background: "linear-gradient(90deg,#6366f1,#38bdf8)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              with AI Vision
+              Community
             </span>
           </h1>
           <p style={{ color: T.muted, fontSize: 16, lineHeight: 1.7, margin: 0, maxWidth: 380 }}>
-            Real-time hand tracking · Instant feedback · Adaptive learning that meets you where you are.
+            Create an account to track your progress, practice ISL interactively, and connect with peers.
           </p>
-
-          {/* Feature pills */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 32 }}>
-            {["Hand Tracking", "ISL Curriculum", "AI Feedback"].map(tag => (
-              <span key={tag} style={{
-                padding: "6px 14px", borderRadius: 99, fontSize: 12, fontWeight: 600,
-                background: T.dark ? "rgba(99,102,241,0.12)" : "rgba(99,102,241,0.09)",
-                border: `1px solid rgba(99,102,241,${T.dark ? "0.25" : "0.2"})`,
-                color: T.dark ? "#a5b4fc" : ACCENT,
-              }}>{tag}</span>
-            ))}
-          </div>
         </div>
 
         {/* ── Form card ── */}
@@ -404,17 +389,16 @@ export default function Login() {
           padding: "40px 36px",
           transition: "background .3s, border-color .3s, box-shadow .3s",
         }}>
-          <h2 style={{ color: T.text, fontWeight: 800, fontSize: 24, letterSpacing: -0.5, margin: "0 0 6px" }}>Welcome back</h2>
-          <p style={{ color: T.muted, fontSize: 14, margin: "0 0 28px" }}>Sign in to continue your journey</p>
+          <h2 style={{ color: T.text, fontWeight: 800, fontSize: 24, letterSpacing: -0.5, margin: "0 0 6px" }}>Create account</h2>
+          <p style={{ color: T.muted, fontSize: 14, margin: "0 0 28px" }}>Start your ISL journey today</p>
 
-          {/* ADDED: Backend Error Banner catches failed login attempts */}
           {error && (
             <div style={{ marginBottom: 20 }}>
-              <ErrorBanner message={error} title="Login Failed" onDismiss={clearError} autoDismissMs={0} />
+              <ErrorBanner message={error} title="Registration Failed" onDismiss={clearError} autoDismissMs={0} />
             </div>
           )}
 
-          <div style={{ marginBottom: 24 }}>
+          <div style={{ marginBottom: 20 }}>
             <div style={{ color: T.muted, fontSize: 10, fontWeight: 700, letterSpacing: 2, marginBottom: 10, fontFamily: "DM Mono,monospace" }}>I AM A</div>
             <div style={{ display: "flex", background: T.dark ? "rgba(255,255,255,0.06)" : "rgba(99,102,241,0.07)", border: `1px solid ${glassBdr}`, borderRadius: 14, padding: 4, transition: "background .3s,border-color .3s" }}>
               {(["student", "mentor"] as Role[]).map(r => (
@@ -428,6 +412,47 @@ export default function Login() {
                 }}>{r === "student" ? "Student" : "Mentor"}</button>
               ))}
             </div>
+          </div>
+
+          {/* First & Last Name row */}
+          <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ color: T.muted, fontSize: 10, fontWeight: 700, letterSpacing: 1.8, display: "block", marginBottom: 8, fontFamily: "DM Mono,monospace" }}>FIRST NAME</label>
+              <input 
+                type="text" 
+                placeholder="Jane"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                style={{ ...inputStyle, borderColor: focused === "fname" ? ACCENT : T.inputBdr, boxShadow: focused === "fname" ? "0 0 0 3px rgba(99,102,241,0.15)" : undefined }}
+                onFocus={() => setFocused("fname")} 
+                onBlur={() => setFocused(null)} 
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ color: T.muted, fontSize: 10, fontWeight: 700, letterSpacing: 1.8, display: "block", marginBottom: 8, fontFamily: "DM Mono,monospace" }}>LAST NAME</label>
+              <input 
+                type="text" 
+                placeholder="Doe"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                style={{ ...inputStyle, borderColor: focused === "lname" ? ACCENT : T.inputBdr, boxShadow: focused === "lname" ? "0 0 0 3px rgba(99,102,241,0.15)" : undefined }}
+                onFocus={() => setFocused("lname")} 
+                onBlur={() => setFocused(null)} 
+              />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ color: T.muted, fontSize: 10, fontWeight: 700, letterSpacing: 1.8, display: "block", marginBottom: 8, fontFamily: "DM Mono,monospace" }}>USERNAME</label>
+            <input 
+              type="text" 
+              placeholder="jane_doe123"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              style={{ ...inputStyle, borderColor: focused === "user" ? ACCENT : T.inputBdr, boxShadow: focused === "user" ? "0 0 0 3px rgba(99,102,241,0.15)" : undefined }}
+              onFocus={() => setFocused("user")} 
+              onBlur={() => setFocused(null)} 
+            />
           </div>
 
           <div style={{ marginBottom: 14 }}>
@@ -444,10 +469,7 @@ export default function Login() {
           </div>
 
           <div style={{ marginBottom: 28 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <label style={{ color: T.muted, fontSize: 10, fontWeight: 700, letterSpacing: 1.8, fontFamily: "DM Mono,monospace" }}>PASSWORD</label>
-              <button style={{ color: SKY, fontSize: 12, background: "none", border: "none", cursor: "pointer", padding: 0 }}>Forgot?</button>
-            </div>
+            <label style={{ color: T.muted, fontSize: 10, fontWeight: 700, letterSpacing: 1.8, display: "block", marginBottom: 8, fontFamily: "DM Mono,monospace" }}>PASSWORD</label>
             <div style={{ position: "relative" }}>
               <input 
                 type={showPw ? "text" : "password"} 
@@ -457,7 +479,7 @@ export default function Login() {
                 style={{ ...inputStyle, paddingRight: 48, borderColor: focused === "pw" ? ACCENT : T.inputBdr, boxShadow: focused === "pw" ? "0 0 0 3px rgba(99,102,241,0.15)" : undefined }}
                 onFocus={() => setFocused("pw")} 
                 onBlur={() => setFocused(null)}
-                onKeyDown={e => e.key === "Enter" && handleLoginClick()} 
+                onKeyDown={e => e.key === "Enter" && handleRegisterClick()} 
               />
               <button onClick={() => setShowPw(v => !v)} style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: T.muted, cursor: "pointer", display: "flex" }}>
                 {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -465,26 +487,26 @@ export default function Login() {
             </div>
           </div>
 
-          <button onClick={handleLoginClick} style={{
+          <button onClick={handleRegisterClick} style={{
             width: "100%", padding: "15px 0", borderRadius: 99, border: "none",
             background: "linear-gradient(135deg,#6366f1,#38bdf8)",
             color: "#fff", fontWeight: 800, fontSize: 15, cursor: "pointer",
             display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
             boxShadow: "0 0 36px rgba(99,102,241,0.55)", transition: "all .25s", letterSpacing: 0.3,
           }}>
-            <LogIn size={16} /> Log In as {role === "student" ? "Student" : "Mentor"}
+            <UserPlus size={16} /> Create Account
           </button>
 
           <p style={{ textAlign: "center", color: T.muted, fontSize: 13, marginTop: 20 }}>
-            {"No account? "}<span onClick={
-              ()=> setLocation("/register")} style={{ color: SKY, fontWeight: 600, cursor: "pointer" }}>Sign up free →</span>
+            {"Already have an account? "}
+            <span onClick={() => setLocation("/login")} style={{ color: SKY, fontWeight: 600, cursor: "pointer" }}>Log in →</span>
           </p>
         </div>
       </div>
       <style>{`
         @keyframes signPop { 0%{opacity:0;transform:scale(.72)} 100%{opacity:1;transform:scale(1)} }
         
-        @keyframes pageEnter {
+=        @keyframes pageEnter {
           from { opacity: 0; transform: translateY(15px); filter: blur(4px); }
           to { opacity: 1; transform: translateY(0); filter: blur(0px); }
         }

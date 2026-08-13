@@ -8,6 +8,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AppLayout } from "./components/AppLayout";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Lessons from "./pages/Lessons";
 import Leaderboard from "./pages/Leaderboard";
@@ -16,8 +17,10 @@ import Assessment from "./pages/Assessment";
 
 function Router() {
   return (
+    <AuthProvider>
     <Switch>
-      <Route path={"/"} component={Login} />
+      <Route path={"/login"} component={Login} />
+      <Route path ={"/register"} component={Register}/>
       
       <Route path={"/dashboard"}>
         <ProtectedRoute>
@@ -63,6 +66,7 @@ function Router() {
       {/* Final fallback route */}
       <Route component={NotFound} /> 
     </Switch>
+    </AuthProvider>
   );
 }
 
