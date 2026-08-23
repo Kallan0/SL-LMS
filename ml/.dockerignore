@@ -1,0 +1,12 @@
+__pycache__
+*.pyc
+*.pyo
+.git
+.env
+*.md
+test_pipeline.py
+capture_data.py
+generate_dataset.py
+train_model.py
+train_real.py
+data/
