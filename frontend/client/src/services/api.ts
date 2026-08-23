@@ -1,16 +1,12 @@
 /**
  * api.ts – Centralised HTTP client for Sign Language LMS.
  *
- * Changes from the original scaffold:
- *   • Base URL updated to FastAPI at http://127.0.0.1:8000
- *   • `apiFetch` wrapper acts as a fetch interceptor:
- *       - Reads the JWT from localStorage (or AuthContext via a provided getter)
- *       - Attaches `Authorization: Bearer <token>` to every outgoing request
- *       - Handles 401 responses by clearing the stored token and reloading
- *   • `ProductionApiService` now uses `apiFetch` throughout
- *   • Mock service and factory logic preserved unchanged
+ * `apiFetch` wrapper acts as a fetch interceptor:
+ *   • Reads the JWT from localStorage
+ *   • Attaches `Authorization: Bearer <token>` to every outgoing request
+ *   • Handles 401 responses by clearing the stored token and redirecting to /login
+ *   • Enforces a configurable request timeout
  */
-
 import {
   User,
   Lesson,
@@ -22,13 +18,19 @@ import {
   LoginRequest,
   LoginResponse,
   ProgressStatus,
-} from "@/types";
-import { mockApiService } from "./mockData";
+} from "@/types/index";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const FASTAPI_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
+/**
+ * Core backend URL (Express + Prisma).
+ * All auth, lessons, progress, leaderboard, and quiz endpoints live here.
+ * The ML inference service (port 8000) is called separately by the
+ * Assessment page and WebcamTracker component — it is NOT routed through
+ * this base URL.
+ */
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:5000";
 
 const JWT_STORAGE_KEY =
   import.meta.env.VITE_JWT_STORAGE_KEY ?? "sign_language_lms_token";
@@ -83,7 +85,7 @@ export async function apiFetch<T>(
   options: RequestInit = {},
   timeoutMs: number = DEFAULT_TIMEOUT_MS
 ): Promise<T> {
-  const url        = `${FASTAPI_BASE_URL}${endpoint}`;
+  const url        = `${API_BASE_URL}${endpoint}`;
   const controller = new AbortController();
   const timerId    = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -148,6 +150,10 @@ export interface IApiService {
   logout(): Promise<{ success: boolean }>;
   getCurrentUser(): Promise<User>;
 
+  //Register
+  register(email: string, username: string, password: string, role: string, firstName: string, lastName: string): Promise<any>;
+  
+
   // Lessons
   getLessons(): Promise<Lesson[]>;
   getLesson(id: string): Promise<Lesson>;
@@ -182,10 +188,18 @@ class ProductionApiService implements IApiService {
       body: JSON.stringify({ email, password } satisfies LoginRequest),
     });
 
-    if (response.token?.accessToken) {
-      storeToken(response.token.accessToken);
+    if (response.token?.access_token) {
+      storeToken(response.token.access_token);
     }
 
+    return response;
+  }
+
+  async register(email: string, username: string, password: string, role: string, firstName: string, lastName: string): Promise<any> {
+    const response = await apiFetch('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, username, password, role, firstName, lastName }),
+    });
     return response;
   }
 
@@ -267,70 +281,4 @@ class ProductionApiService implements IApiService {
   }
 }
 
-// ─── Mock Implementation (unchanged) ─────────────────────────────────────────
-
-class MockApiService implements IApiService {
-  async login(email: string, password: string): Promise<LoginResponse> {
-    return mockApiService.login(email, password);
-  }
-  async logout(): Promise<{ success: boolean }> {
-    return mockApiService.logout();
-  }
-  async getCurrentUser(): Promise<User> {
-    return mockApiService.getCurrentUser();
-  }
-  async getLessons(): Promise<Lesson[]> {
-    return mockApiService.getLessons();
-  }
-  async getLesson(id: string): Promise<Lesson> {
-    return mockApiService.getLesson(id);
-  }
-  async getProgress(): Promise<Progress[]> {
-    return mockApiService.getProgress();
-  }
-  async getLessonProgress(lessonId: string): Promise<Progress> {
-    return mockApiService.getLessonProgress(lessonId);
-  }
-  async updateProgress(
-    lessonId: string,
-    status: ProgressStatus,
-    accuracy?: number
-  ): Promise<Progress> {
-    return mockApiService.updateProgress(lessonId, status, accuracy);
-  }
-  async getLeaderboard(): Promise<LeaderboardEntry[]> {
-    return mockApiService.getLeaderboard();
-  }
-  async getAchievements(): Promise<Achievement[]> {
-    return mockApiService.getAchievements();
-  }
-  async getQuizQuestions(lessonId: string): Promise<QuizQuestion[]> {
-    return mockApiService.getQuizQuestions(lessonId);
-  }
-  async submitQuiz(
-    lessonId: string,
-    answers: Record<string, string>
-  ): Promise<QuizResult> {
-    return mockApiService.submitQuiz(lessonId, answers);
-  }
-  async updateProfile(updates: Partial<User>): Promise<User> {
-    return mockApiService.updateProfile(updates);
-  }
-}
-
-// ─── Factory ──────────────────────────────────────────────────────────────────
-
-function createApiService(): IApiService {
-  const useMock =
-    import.meta.env.VITE_ENABLE_MOCK_DATA === "true" || import.meta.env.DEV;
-
-  if (useMock) {
-    console.log("🎭 Using Mock API Service");
-    return new MockApiService();
-  }
-
-  console.log("🌐 Using Production API Service → FastAPI @ 127.0.0.1:8000");
-  return new ProductionApiService();
-}
-
-export const apiService = createApiService();
+export const apiService = new ProductionApiService();

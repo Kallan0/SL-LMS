@@ -21,9 +21,11 @@ export interface AuthState {
 
 export interface UseAuthReturn extends AuthState {
   login: (email: string, password: string) => Promise<void>;
+  register: (email: string, username: string, password: string, role: string, firstName: string, lastName: string) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
   refreshToken: (newToken: AuthToken) => void;
+  updateUser: (updates: Partial<User>) => Promise<void>;
 }
 
 /**
@@ -44,15 +46,16 @@ export function useAuth(): UseAuthReturn {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        const storedToken = getStoredToken();
+        const rawToken = getRawToken();
         
-        if (storedToken) {
+        if (rawToken) {
+          const authToken: AuthToken = { access_token: rawToken, token_type: "bearer", expiresIn: 86400 };
           // Verify token is still valid by fetching current user
-          const user = await apiService.getCurrentUser();
+          const currentUser = await apiService.getCurrentUser();
           setState((prev) => ({
             ...prev,
-            user,
-            token: storedToken,
+            user: { ...currentUser, id: String(currentUser.id) },
+            token: authToken,
             isAuthenticated: true,
             isLoading: false,
           }));
@@ -65,7 +68,7 @@ export function useAuth(): UseAuthReturn {
       } catch (error) {
         console.error("Failed to initialize auth", error);
         // Clear invalid token
-        clearStoredToken();
+        clearRawToken();
         setState((prev) => ({
           ...prev,
           isLoading: false,
@@ -86,15 +89,22 @@ export function useAuth(): UseAuthReturn {
     try {
       const response = await apiService.login(email, password);
       
-      // Store token securely
-      if (response.token?.accessToken) {
-        storeToken(response.token);
+      // api.ts already stores the raw JWT in localStorage — no need to duplicate
+      const authToken: AuthToken = response.token ?? {
+        access_token: "",
+        token_type: "bearer",
+        expiresIn: 86400,
+      };
+
+      const user = response.user;
+      if (!user) {
+        throw new Error("Login succeeded but no user data was returned");
       }
-      
+
       setState((prev) => ({
         ...prev,
-        user: response.user,
-        token: response.token,
+        user: { ...user, id: String(user.id) },
+        token: authToken,
         isAuthenticated: true,
         isLoading: false,
         error: null,
@@ -114,6 +124,45 @@ export function useAuth(): UseAuthReturn {
   }, []);
 
   /**
+   * Register a new userr
+   */
+
+    const register = useCallback(async (email: string, username: string, password: string, role: string, firstName: string, lastName: string) => {
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
+
+      try {
+        const response = await apiService.register(email, username, password, role, firstName, lastName);
+
+        // Registration may or may not return a token/user — handle both cases
+        if (response?.user) {
+          setState((prev) => ({
+            ...prev,
+            user: { ...response.user, id: String(response.user.id) },
+            token: response.token ?? null,
+            isAuthenticated: !!response.token,
+            isLoading: false,
+            error: null,
+          }));
+        } else {
+          setState((prev) => ({
+            ...prev,
+            isLoading: false,
+            error: null,
+          }));
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Registration not successful";
+        console.error("Registration Error:", error);
+
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          error: errorMessage,
+        }));
+        throw error;
+      }
+    }, []);
+  /**
    * Logout user and clear session
    */
   const logout = useCallback(async () => {
@@ -121,7 +170,7 @@ export function useAuth(): UseAuthReturn {
     
     try {
       await apiService.logout();
-      clearStoredToken();
+      clearRawToken();
       
       setState((prev) => ({
         ...prev,
@@ -134,7 +183,7 @@ export function useAuth(): UseAuthReturn {
     } catch (error) {
       console.error("Logout error:", error);
       // Still clear local state even if API call fails
-      clearStoredToken();
+      clearRawToken();
       
       setState((prev) => ({
         ...prev,
@@ -157,74 +206,70 @@ export function useAuth(): UseAuthReturn {
    * Update stored token (useful for token refresh)
    */
   const refreshToken = useCallback((newToken: AuthToken) => {
-    storeToken(newToken);
     setState((prev) => ({
       ...prev,
       token: newToken,
     }));
   }, []);
 
+  /**
+   * Update user profile via API and refresh local state
+   */
+  const updateUser = useCallback(async (updates: Partial<User>) => {
+    const updated = await apiService.updateProfile(updates);
+    setState((prev) => ({
+      ...prev,
+      user: { ...prev.user, ...updated, id: String(updated.id) } as User,
+    }));
+  }, []);
+
   return {
     ...state,
     login,
+    register,
     logout,
     clearError,
     refreshToken,
+    updateUser,
   };
 }
 
 /**
- * Get stored JWT token from localStorage
+ * Read the raw JWT string from localStorage.
+ * api.ts stores the raw JWT — we read it directly to avoid conflicts.
  */
-function getStoredToken(): AuthToken | null {
+function getRawToken(): string | null {
   try {
     const stored = localStorage.getItem(JWT_STORAGE_KEY);
     if (!stored) return null;
-    
-    const token = JSON.parse(stored) as AuthToken;
-    
-    // Check if token is expired
-    if (token.expiresIn) {
-      const expirationTime = JSON.parse(localStorage.getItem(JWT_STORAGE_KEY + "_timestamp") || "0");
-      const now = Date.now();
-      
-      if (now > expirationTime) {
-        clearStoredToken();
-        return null;
-      }
-    }
-    
-    return token;
-  } catch (error) {
-    console.error("Failed to retrieve stored token", error);
-    return null;
-  }
-}
 
-/**
- * Store JWT token in localStorage with expiration tracking
- */
-function storeToken(token: AuthToken): void {
-  try {
-    localStorage.setItem(JWT_STORAGE_KEY, JSON.stringify(token));
-    
-    // Store expiration timestamp
-    const expirationTime = Date.now() + (token.expiresIn * 1000);
-    localStorage.setItem(JWT_STORAGE_KEY + "_timestamp", JSON.stringify(expirationTime));
-  } catch (error) {
-    console.error("Failed to store token", error);
+    // Handle both raw JWT strings and JSON-wrapped tokens (legacy)
+    try {
+      const parsed = JSON.parse(stored);
+      if (parsed && typeof parsed === "object" && parsed.access_token) {
+        // Legacy JSON format — migrate to raw string
+        localStorage.setItem(JWT_STORAGE_KEY, parsed.access_token);
+        return parsed.access_token;
+      }
+    } catch {
+      // Not JSON — treat as raw JWT string (normal case)
+    }
+
+    return stored;
+  } catch {
+    return null;
   }
 }
 
 /**
  * Clear stored JWT token from localStorage
  */
-function clearStoredToken(): void {
+function clearRawToken(): void {
   try {
     localStorage.removeItem(JWT_STORAGE_KEY);
     localStorage.removeItem(JWT_STORAGE_KEY + "_timestamp");
-  } catch (error) {
-    console.error("Failed to clear token", error);
+  } catch {
+    // ignore
   }
 }
 
@@ -232,13 +277,12 @@ function clearStoredToken(): void {
  * Get JWT token from localStorage (utility function)
  */
 export function getJWTToken(): string | null {
-  const token = getStoredToken();
-  return token?.access_token ?? null;
+  return getRawToken();
 }
 
 /**
  * Clear JWT token (utility function)
  */
 export function clearJWTToken(): void {
-  clearStoredToken();
+  clearRawToken();
 }
