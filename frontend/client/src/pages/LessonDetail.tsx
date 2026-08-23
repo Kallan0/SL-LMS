@@ -72,7 +72,7 @@ export function LessonDetail({ lessonId }: LessonDetailProps) {
 
   const calculateAccuracy = () => {
     if (!lesson) return 0;
-    const totalExercises = lesson.content.practiceExercises.length;
+    const totalExercises = exercises.length;
     return (completedExercises.size / totalExercises) * 100;
   };
 
@@ -97,7 +97,7 @@ export function LessonDetail({ lessonId }: LessonDetailProps) {
     );
   }
 
-  if (lessonError || !lesson) {
+  if (lessonError || !lesson || !lesson.content) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-12">
         <ErrorBanner
@@ -111,9 +111,12 @@ export function LessonDetail({ lessonId }: LessonDetailProps) {
     );
   }
 
-  const currentStep = lesson.content.steps[currentStepIndex];
+  const content = lesson.content;
+  const steps = content.steps ?? [];
+  const exercises = content.practiceExercises ?? [];
+  const currentStep = steps[currentStepIndex];
   const allExercisesCompleted =
-    completedExercises.size === lesson.content.practiceExercises.length;
+    completedExercises.size === exercises.length;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -148,14 +151,14 @@ export function LessonDetail({ lessonId }: LessonDetailProps) {
             <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
               <span>Lesson Progress</span>
               <span>
-                {completedExercises.size}/{lesson.content.practiceExercises.length}
+                {completedExercises.size}/{exercises.length}
               </span>
             </div>
             <div className="w-full bg-slate-700 rounded-full h-2">
               <motion.div
                 className="bg-indigo-500 h-2 rounded-full transition-all"
                 animate={{
-                  width: `${(completedExercises.size / lesson.content.practiceExercises.length) * 100}%`,
+                  width: `${(completedExercises.size / exercises.length) * 100}%`,
                 }}
               />
             </div>
@@ -196,7 +199,7 @@ export function LessonDetail({ lessonId }: LessonDetailProps) {
             >
               <h2 className="text-xl font-bold text-white mb-4">Introduction</h2>
               <p className="text-slate-300 leading-relaxed">
-                {lesson.content.introduction}
+                {content.introduction}
               </p>
             </motion.div>
           )}
@@ -248,7 +251,7 @@ export function LessonDetail({ lessonId }: LessonDetailProps) {
           )}
 
           {/* Summary */}
-          {currentStepIndex === lesson.content.steps.length && (
+          {currentStepIndex === steps.length && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -256,7 +259,7 @@ export function LessonDetail({ lessonId }: LessonDetailProps) {
             >
               <h2 className="text-xl font-bold text-white mb-4">Summary</h2>
               <p className="text-slate-300 leading-relaxed">
-                {lesson.content.summary}
+                {content.summary}
               </p>
             </motion.div>
           )}
@@ -272,16 +275,16 @@ export function LessonDetail({ lessonId }: LessonDetailProps) {
             </Button>
 
             <span className="text-sm text-slate-400">
-              {currentStepIndex} / {lesson.content.steps.length + 1}
+              {currentStepIndex} / {steps.length + 1}
             </span>
 
             <Button
               onClick={() =>
                 setCurrentStepIndex(
-                  Math.min(lesson.content.steps.length, currentStepIndex + 1)
+                  Math.min(steps.length, currentStepIndex + 1)
                 )
               }
-              disabled={currentStepIndex === lesson.content.steps.length}
+              disabled={currentStepIndex === steps.length}
             >
               Next
             </Button>
@@ -301,7 +304,7 @@ export function LessonDetail({ lessonId }: LessonDetailProps) {
             </h3>
 
             <div className="space-y-3 mb-6">
-              {lesson.content.practiceExercises.map((exercise) => {
+              {exercises.map((exercise) => {
                 const isCompleted = completedExercises.has(exercise.id);
 
                 return (

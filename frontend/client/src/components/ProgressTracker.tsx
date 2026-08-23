@@ -6,7 +6,7 @@
 
 import { motion } from "framer-motion";
 import { TrendingUp, Flame, BookOpen, Trophy, Zap } from "lucide-react";
-import { User, Progress } from "@/types";
+import { User, Progress } from "../types/index";
 
 export interface ProgressTrackerProps {
   user: User | null;
@@ -20,12 +20,12 @@ export function ProgressTracker({ user, progress }: ProgressTrackerProps) {
   if (!user || !progress) return null;
 
   // Calculate statistics
-  const completedLessons = progress.filter((p) => p.status === "completed" || p.status === "mastered").length;
+  const completedLessons = progress.filter((p) => p.status === "COMPLETED" || (p.status as string) === "mastered").length;
   const totalLessons = progress.length;
   const averageAccuracy = Math.round(
     progress.reduce((sum, p) => sum + (p.accuracy || 0), 0) / (progress.length || 1)
   );
-  const totalXP = user.totalXP;
+  const totalXP = user.xp;
 
   const stats = [
     {
@@ -39,7 +39,7 @@ export function ProgressTracker({ user, progress }: ProgressTrackerProps) {
     {
       icon: Flame,
       label: "Current Streak",
-      value: user.currentStreak,
+      value: user.streak,
       suffix: "days",
       color: "text-orange-400",
       bgColor: "bg-orange-500/20",
@@ -122,7 +122,8 @@ export function ProgressChart({ progress }: ProgressChartProps) {
       const weekEnd = weekStart + 7 * 24 * 60 * 60 * 1000;
 
       return progress.filter((p) => {
-        const date = new Date(p.completedAt || p.lastAccessedAt).getTime();
+        const dateVal = p.completedAt || p.lastAccessedAt;
+        const date = dateVal ? new Date(dateVal).getTime() : 0;
         return date >= weekStart && date <= weekEnd;
       }).length;
     });

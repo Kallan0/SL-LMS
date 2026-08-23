@@ -166,7 +166,7 @@ export default function Leaderboard() {
                       >
                         <td className="px-6 py-4 text-sm font-semibold text-white">
                           <div className="flex items-center gap-2">
-                            {getMedalIcon(entry.rank)}
+                            {getMedalIcon(entry.rank ?? (index + 1))}
                           </div>
                         </td>
                         <td className="px-6 py-4 text-sm">
