@@ -13,6 +13,7 @@ import { useInactivityLogout } from "@/hooks/useInactivityLogout";
 import { useQuery } from "@/hooks/useQuery";
 import { apiService } from "@/services/api";
 import { ProgressTracker, ProgressChart } from "@/components/ProgressTracker";
+import { ProgressStatus } from "../types/index"
 
 /**
  * Dashboard Page Component
@@ -53,7 +54,7 @@ export default function Dashboard() {
 
   // Calculate statistics
   const completedLessons = (progress || []).filter(
-    (p) => p.status === "completed" || p.status === "mastered"
+    (p) => p.status === ProgressStatus.COMPLETED
   ).length;
   const unlockedAchievements = (achievements || []).filter((a) => a.unlockedAt).length;
 
@@ -143,7 +144,7 @@ export default function Dashboard() {
               <Zap className="w-5 h-5 text-yellow-500" />
             </div>
             <p className="text-3xl font-bold text-white">
-              {Math.ceil((10000 - (user?.totalXP || 0)) / 100) * 100}
+              {Math.ceil((10000 - (user?.xp || 0)) / 100) * 100}
             </p>
             <p className="text-slate-500 text-xs mt-2">XP to 10,000</p>
           </div>
@@ -177,17 +178,7 @@ export default function Dashboard() {
           </div>
         </motion.div>
 
-        {/* Info Message */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4 }}
-          className="p-4 bg-blue-900/20 border border-blue-700/50 rounded-lg text-blue-300 text-sm"
-        >
-          <p>
-            <strong>Tip:</strong> You will be automatically logged out after 10 minutes of inactivity for security purposes.
-          </p>
-        </motion.div>
+
       </main>
     </div>
   );

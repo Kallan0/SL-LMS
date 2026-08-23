@@ -19,9 +19,10 @@ import { ErrorBanner } from "../components/ErrorBanner";
  */
 export default function Profile() {
   const [, setLocation] = useLocation();
-  const { user, logout } = useAuthContext();
+  const { user, logout, updateUser } = useAuthContext();
 
   const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     firstName: user?.firstName || "",
     lastName: user?.lastName || "",
@@ -37,15 +38,24 @@ export default function Profile() {
   const handleSaveProfile = async () => {
     try {
       setError(null);
-      // In a real app, this would call an API to update the profile
-      console.log("Saving profile:", formData);
+      setSaving(true);
+      await updateUser({
+        firstName: formData.firstName || undefined,
+        lastName: formData.lastName || undefined,
+        bio: formData.bio || undefined,
+      });
       setIsEditing(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to save profile";
       setError(errorMessage);
       console.error("Profile save error:", err);
+    } finally {
+      setSaving(false);
     }
   };
+
+  // First-letter avatar: use first letter of username, firstName, or email
+  const avatarLetter = (user?.firstName || user?.username || user?.email || "?")[0].toUpperCase();
 
   const handleLogout = async () => {
     try {
@@ -76,8 +86,8 @@ export default function Profile() {
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Error Banner - Hidden for now */}
-        {false && error && (
+        {/* Error Banner */}
+        {error && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -111,14 +121,13 @@ export default function Profile() {
           </div>
 
           <div className="flex items-center gap-6 mb-8">
-            <img
-              src={user?.avatar}
-              alt={user?.firstName}
-              className="w-20 h-20 rounded-full border-2 border-indigo-500"
-            />
+            <div className="w-20 h-20 rounded-full border-2 border-indigo-500 bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0">
+              <span className="text-white text-3xl font-bold select-none">{avatarLetter}</span>
+            </div>
             <div>
-              <p className="text-slate-400 text-sm mb-1">Email</p>
-              <p className="text-white font-medium">{user?.email}</p>
+              <p className="text-white font-semibold text-lg">{user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : user?.username}</p>
+              <p className="text-slate-400 text-sm">@{user?.username}</p>
+              <p className="text-slate-400 text-sm mt-1">{user?.email}</p>
             </div>
           </div>
 
@@ -168,9 +177,10 @@ export default function Profile() {
 
               <Button
                 onClick={handleSaveProfile}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                disabled={saving}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50"
               >
-                Save Changes
+                {saving ? "Saving…" : "Save Changes"}
               </Button>
             </div>
           ) : (
