@@ -293,18 +293,14 @@ export function WebcamTracker({
    *      headers: { Authorization: `Bearer ${token}` }
    */
   async function sendToFastAPI(landmarks: number[]): Promise<PredictionResult | null> {
-    // ── STUB: remove this block when the backend is running ──
-    console.debug("[WebcamTracker] sendToFastAPI (stub) – landmarks:", landmarks.length);
-    return null;
-    // ─────────────────────────────────────────────────────────
-
-    /* eslint-disable no-unreachable */
     try {
+      const FASTAPI_URL =
+        import.meta.env.VITE_ML_BASE_URL ?? "http://127.0.0.1:8001";
       const token = localStorage.getItem(
         import.meta.env.VITE_JWT_STORAGE_KEY ?? "sign_language_lms_token"
       );
 
-      const response = await fetch("http://127.0.0.1:8000/cv/predict", {
+      const response = await fetch(`${FASTAPI_URL}/cv/predict`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -323,7 +319,6 @@ export function WebcamTracker({
       console.error("[WebcamTracker] sendToFastAPI failed:", err);
       return null;
     }
-    /* eslint-enable no-unreachable */
   }
 
   // ── 6. Render ─────────────────────────────────────────────────────────────
@@ -331,7 +326,7 @@ export function WebcamTracker({
   if (status === "error") {
     return (
       <div className="flex items-center justify-center rounded-xl bg-destructive/10 border border-destructive/30 p-6 text-destructive text-sm">
-        <span>⚠️ {errorMsg || "WebcamTracker failed to initialise."}</span>
+        <span>{errorMsg || "WebcamTracker failed to initialise."}</span>
       </div>
     );
   }
