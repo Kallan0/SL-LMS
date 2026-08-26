@@ -17,13 +17,11 @@ import {
   X,
   Zap,
   Home,
-  AlertTriangle,
   Shield,
   MessageSquare,
 } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { useTheme } from "@/contexts/ThemeContext";
-import { Moon, Sun } from "lucide-react";
+import { LogoutConfirmModal } from "@/components/LogoutConfirmModal";
 
 /**
  * Navigation Component
@@ -33,7 +31,6 @@ export function Navigation() {
   const { user, logout } = useAuthContext();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const { theme, toggleTheme } = useTheme();
 
   const avatarLetter = (user?.firstName || user?.username || user?.email || "?")[0].toUpperCase();
 
@@ -70,46 +67,11 @@ export function Navigation() {
 
   return (
     <>
-    {/* Logout Confirmation Modal */}
-    <AnimatePresence>
-      {showLogoutConfirm && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-          onClick={() => setShowLogoutConfirm(false)}
-        >
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            className="w-full max-w-sm bg-slate-800 dark:bg-slate-900 rounded-2xl border border-slate-700 dark:border-slate-700 p-6 text-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle className="w-6 h-6 text-red-400" />
-            </div>
-            <h3 className="text-white font-bold text-lg mb-2">Logout?</h3>
-            <p className="text-slate-400 text-sm mb-6">Are you sure you want to log out? Any unsaved progress will be lost.</p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-600 dark:border-slate-600 text-slate-300 font-semibold text-sm hover:bg-slate-700 dark:hover:bg-slate-800 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmLogout}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-sm transition-colors shadow-lg shadow-red-600/20"
-              >
-                Logout
-              </button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <LogoutConfirmModal
+      open={showLogoutConfirm}
+      onConfirm={confirmLogout}
+      onCancel={() => setShowLogoutConfirm(false)}
+    />
 
     <nav className="bg-slate-900/60 dark:bg-slate-950/70 border-b border-slate-700/30 dark:border-slate-800/30 backdrop-blur-2xl sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -155,17 +117,6 @@ export function Navigation() {
 
           {/* User Menu and Mobile Toggle */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Dark Mode Toggle */}
-            <motion.button
-              onClick={toggleTheme}
-              className="p-2 rounded-lg text-slate-300 hover:bg-slate-700/50 transition-colors"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </motion.button>
-
             {/* User Avatar — always visible, name shown on md+ */}
             <motion.button
               onClick={() => setLocation("/profile")}
@@ -174,8 +125,12 @@ export function Navigation() {
               whileTap={{ scale: 0.95 }}
               title="Profile"
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                <span className="text-white text-xs font-bold select-none">{avatarLetter}</span>
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center overflow-hidden">
+                {user?.avatar ? (
+                  <img src={user.avatar} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-white text-xs font-bold select-none">{avatarLetter}</span>
+                )}
               </div>
               <div className="text-sm text-left hidden lg:block">
                 <p className="text-white font-medium leading-tight">{user?.firstName || user?.username}</p>
@@ -243,15 +198,6 @@ export function Navigation() {
                     </motion.button>
                   );
                 })}
-
-                <motion.button
-                  onClick={toggleTheme}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-700/50 transition-colors"
-                  whileHover={{ x: 4 }}
-                >
-                  {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                  <span className="font-medium">{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
-                </motion.button>
 
                 <motion.button
                   onClick={() => {

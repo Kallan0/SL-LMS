@@ -7,11 +7,12 @@
 
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, Filter, Search, Play, CheckCircle, Clock, X, Video } from "lucide-react";
+import { BookOpen, Filter, Search, Play, CheckCircle, Clock, X, Video, Heart, LayoutGrid, List } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@/hooks/useQuery";
 import { apiService } from "@/services/api";
+import { LessonsSkeleton } from "@/components/PageSkeletons";
 import { Lesson, LessonDifficulty, LessonCategory } from "@/types";
 
 /**
@@ -37,6 +38,20 @@ export default function Lessons() {
   const [selectedDifficulty, setSelectedDifficulty] = useState<LessonDifficulty | "all">("all");
   const [selectedCategory, setSelectedCategory] = useState<LessonCategory | "all">("all");
   const [playingLessonId, setPlayingLessonId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<"default" | "difficulty" | "duration">("default");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [bookmarks, setBookmarks] = useState<Set<string>>(() => {
+    try { const s = localStorage.getItem("isl_bookmarks"); return s ? new Set(JSON.parse(s)) : new Set(); } catch { return new Set(); }
+  });
+
+  const toggleBookmark = (lessonId: string) => {
+    setBookmarks((prev) => {
+      const next = new Set(prev);
+      if (next.has(lessonId)) next.delete(lessonId); else next.add(lessonId);
+      localStorage.setItem("isl_bookmarks", JSON.stringify(Array.from(next)));
+      return next;
+    });
+  };
 
   const { data: lessons = [], isLoading, error, refetch } = useQuery(
     "lessons",
@@ -52,7 +67,7 @@ export default function Lessons() {
 
   const filteredLessons = useMemo(() => {
     if (!lessons) return [];
-    return lessons.filter((lesson) => {
+    const filtered = lessons.filter((lesson) => {
       const matchesSearch =
         lesson.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (lesson.description ?? "").toLowerCase().includes(searchTerm.toLowerCase());
@@ -60,7 +75,15 @@ export default function Lessons() {
       const matchesCategory = selectedCategory === "all" || (lesson.category ?? '').toLowerCase() === selectedCategory.toLowerCase();
       return matchesSearch && matchesDifficulty && matchesCategory;
     });
-  }, [lessons || [], searchTerm, selectedDifficulty, selectedCategory]);
+    // Sort
+    if (sortBy === "difficulty") {
+      const order = { BEGINNER: 0, INTERMEDIATE: 1, ADVANCED: 2 };
+      filtered.sort((a, b) => (order[a.difficulty as keyof typeof order] ?? 3) - (order[b.difficulty as keyof typeof order] ?? 3));
+    } else if (sortBy === "duration") {
+      filtered.sort((a, b) => (a.duration ?? 0) - (b.duration ?? 0));
+    }
+    return filtered;
+  }, [lessons || [], searchTerm, selectedDifficulty, selectedCategory, sortBy]);
 
   const getProgressForLesson = (lessonId: string) => {
     if (!progress) return undefined;
@@ -133,9 +156,11 @@ export default function Lessons() {
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
             <div className="flex items-center gap-3 mb-2">
               <BookOpen className="w-8 h-8 text-indigo-400" />
-              <h1 className="text-3xl font-bold text-white">Lessons</h1>
+              <div>
+                <h1 className="text-2xl font-bold text-white">Lessons</h1>
+                <p className="text-slate-400 text-sm">Browse and learn Indian Sign Language with embedded video tutorials</p>
+              </div>
             </div>
-            <p className="text-slate-400">Browse and learn Indian Sign Language with embedded video tutorials</p>
           </motion.div>
         </div>
       </header>
@@ -148,25 +173,30 @@ export default function Lessons() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-slate-800 dark:bg-slate-900 rounded-lg p-6 border border-slate-700 dark:border-slate-800 mb-8"
         >
-          <div className="flex items-center gap-2 mb-4">
-            <Filter className="w-5 h-5 text-indigo-400" />
-            <h2 className="text-lg font-semibold text-white">Filters</h2>
+          <div className="flex items-center gap-3 mb-4">
+            <Filter className="w-4 h-4 text-indigo-400" />
+            <h2 className="text-sm font-bold text-white">Filters</h2>
+            <div className="ml-auto flex items-center gap-2">
+              {/* View Toggle */}
+              <button onClick={() => setViewMode("grid")} className={`p-1.5 rounded-md transition-colors ${viewMode === "grid" ? "bg-indigo-600 text-white" : "text-slate-500 hover:text-white"}`}><LayoutGrid size={14} /></button>
+              <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-md transition-colors ${viewMode === "list" ? "bg-indigo-600 text-white" : "text-slate-500 hover:text-white"}`}><List size={14} /></button>
+            </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="relative">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="relative col-span-2 md:col-span-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <Input
                 type="text"
-                placeholder="Search lessons..."
+                placeholder="Search..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-slate-700 dark:bg-slate-800 border-slate-600 dark:border-slate-700 text-white placeholder-slate-500"
+                className="pl-10 bg-slate-700 dark:bg-slate-800 border-slate-600 dark:border-slate-700 text-white placeholder-slate-500 text-sm"
               />
             </div>
             <select
               value={selectedDifficulty}
               onChange={(e) => setSelectedDifficulty(e.target.value as any)}
-              className="px-4 py-2 bg-slate-700 dark:bg-slate-800 border border-slate-600 dark:border-slate-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="px-3 py-2 bg-slate-700 dark:bg-slate-800 border border-slate-600 dark:border-slate-700 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="all">All Difficulties</option>
               <option value={LessonDifficulty.BEGINNER}>Beginner</option>
@@ -176,7 +206,7 @@ export default function Lessons() {
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value as any)}
-              className="px-4 py-2 bg-slate-700 dark:bg-slate-800 border border-slate-600 dark:border-slate-700 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="px-3 py-2 bg-slate-700 dark:bg-slate-800 border border-slate-600 dark:border-slate-700 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="all">All Categories</option>
               <option value={LessonCategory.ALPHABET}>Alphabet</option>
@@ -185,39 +215,87 @@ export default function Lessons() {
               <option value={LessonCategory.CONVERSATION}>Conversation</option>
               <option value={LessonCategory.GRAMMAR}>Grammar</option>
             </select>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="px-3 py-2 bg-slate-700 dark:bg-slate-800 border border-slate-600 dark:border-slate-700 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="default">Default Order</option>
+              <option value="difficulty">By Difficulty</option>
+              <option value="duration">By Duration</option>
+            </select>
           </div>
         </motion.div>
 
-        {/* Lessons Grid */}
+        {/* Lessons Grid/List */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-indigo-500/20 mb-4">
-                <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-              </div>
-              <p className="text-slate-400">Loading lessons...</p>
-            </div>
-          </div>
+          <LessonsSkeleton />
         ) : !filteredLessons || filteredLessons.length === 0 ? (
           <div className="text-center py-12">
             <BookOpen className="w-12 h-12 text-slate-600 mx-auto mb-4" />
             <p className="text-slate-400">No lessons found matching your filters.</p>
           </div>
+        ) : viewMode === "list" ? (
+          <div className="space-y-3">
+            {filteredLessons.map((lesson, index) => {
+              const lessonProgress = getProgressForLesson(lesson.id);
+              const isCompleted = lessonProgress?.status === "COMPLETED";
+              const youtubeId = getYoutubeId(lesson.videoUrl);
+              const hasVideo = !!youtubeId;
+              const isBookmarked = bookmarks.has(lesson.id);
+              return (
+                <motion.div
+                  key={lesson.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.03 }}
+                  className="flex items-center gap-4 bg-slate-800 rounded-xl border border-slate-700/50 p-4 hover:border-slate-600 transition-colors group"
+                >
+                  {/* Thumbnail */}
+                  <div className="w-20 h-14 rounded-lg overflow-hidden bg-slate-700 shrink-0">
+                    {hasVideo ? (
+                      <img src={`https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg"`} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center"><Video className="w-5 h-5 text-slate-600" /></div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-white text-sm font-bold truncate">{lesson.title}</span>
+                      {isCompleted && <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded border ${getDifficultyColor(lesson.difficulty ?? "")}`}>{lesson.difficulty}</span>
+                      <span className="text-slate-500 text-[10px]">{lesson.duration}m</span>
+                    </div>
+                  </div>
+                  <button onClick={(e) => { e.stopPropagation(); toggleBookmark(lesson.id); }} className="shrink-0 p-1">
+                    <Heart className={`w-4 h-4 transition-colors ${isBookmarked ? "text-red-400 fill-red-400" : "text-slate-600 hover:text-slate-400"}`} />
+                  </button>
+                  <button onClick={() => hasVideo && setPlayingLessonId(lesson.id)} disabled={!hasVideo}
+                    className="shrink-0 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-700 disabled:text-slate-500 text-white text-xs font-bold transition-colors flex items-center gap-1.5">
+                    <Play className="w-3 h-3" /> {isCompleted ? "Review" : "Watch"}
+                  </button>
+                </motion.div>
+              );
+            })}
+          </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredLessons.map((lesson, index) => {
               const lessonProgress = getProgressForLesson(lesson.id);
               const isCompleted = lessonProgress?.status === "COMPLETED" || (lessonProgress?.status as string) === "mastered";
               const youtubeId = getYoutubeId(lesson.videoUrl);
               const hasVideo = !!youtubeId;
 
+              const isBookmarked = bookmarks.has(lesson.id);
               return (
                 <motion.div
                   key={lesson.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  className="bg-slate-800 dark:bg-slate-900 rounded-lg border border-slate-700 dark:border-slate-800 overflow-hidden hover:border-indigo-500/50 transition-colors group"
+                  className="bg-slate-800 dark:bg-slate-900 rounded-xl border border-slate-700/50 overflow-hidden hover:border-slate-600 hover:shadow-lg hover:shadow-indigo-500/5 transition-all group"
                 >
                   {/* Thumbnail */}
                   <div className="relative h-40 bg-gradient-to-br from-indigo-600/20 to-purple-600/20 overflow-hidden">
@@ -261,7 +339,10 @@ export default function Lessons() {
                   {/* Content */}
                   <div className="p-4">
                     <div className="flex items-start justify-between mb-2">
-                      <h3 className="text-lg font-semibold text-white flex-1">{lesson.title}</h3>
+                      <h3 className="text-sm font-bold text-white flex-1 truncate">{lesson.title}</h3>
+                      <button onClick={(e) => { e.stopPropagation(); toggleBookmark(lesson.id); }} className="shrink-0 p-1 -mr-1">
+                        <Heart className={`w-4 h-4 transition-colors ${isBookmarked ? "text-red-400 fill-red-400" : "text-slate-600 hover:text-slate-400"}`} />
+                      </button>
                     </div>
 
                     <p className="text-sm text-slate-400 mb-4 line-clamp-2">{lesson.description}</p>

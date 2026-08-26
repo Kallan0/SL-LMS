@@ -7,7 +7,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { apiService } from "@/services/api";
-import { User, AuthToken } from "@/types/index";
+import type { User, AuthToken } from "@/types/index";
 
 const JWT_STORAGE_KEY = import.meta.env.VITE_JWT_STORAGE_KEY || "sign_language_lms_token";
 

@@ -1,66 +1,47 @@
-import { useState, useEffect } from "react";
+/**
+ * MentorDashboard Page
+ *
+ * Mentor-only dashboard showing student overview, progress, and quick actions.
+ */
+
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import {
   Users, BookOpen, Trophy, TrendingUp, MessageSquare,
-  ChevronRight, Clock, CheckCircle, BarChart3, Shield,
+  ChevronRight, Clock, CheckCircle, Shield,
 } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
-
-var ACCENT = "#6366f1";
-var GREEN = "#22c55e";
-var ORANGE = "#f97316";
-var RED = "#ef4444";
-
-interface Student {
-  id: string;
-  email: string;
-  username: string;
-  firstName: string | null;
-  lastName: string | null;
-  xp: number;
-  streak: number;
-  createdAt: string;
-  totalLessons: number;
-  completedLessons: number;
-}
+import { apiService, type MentorStudent } from "@/services/api";
+import { MentorDashboardSkeleton } from "@/components/PageSkeletons";
+import { PageHeader } from "@/components/PageHeader";
+import { EmptyState } from "@/components/EmptyState";
 
 export default function MentorDashboard() {
-  var [, setLocation] = useLocation();
-  var { user } = useAuthContext();
-  var [students, setStudents] = useState<Student[]>([]);
-  var [loading, setLoading] = useState(true);
-  var [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  var [studentProgress, setStudentProgress] = useState<any[]>([]);
-  var [loadingProgress, setLoadingProgress] = useState(false);
+  const [, setLocation] = useLocation();
+  const { user } = useAuthContext();
+  const [students, setStudents] = useState<MentorStudent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedStudent, setSelectedStudent] = useState<MentorStudent | null>(null);
+  const [studentProgress, setStudentProgress] = useState<any[]>([]);
+  const [loadingProgress, setLoadingProgress] = useState(false);
 
-  var token = localStorage.getItem("sign_language_lms_token");
-  var API_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:5000";
-
-  useEffect(function () {
-    fetchStudents();
-  }, []);
-
-  var fetchStudents = async function () {
+  const fetchStudents = useCallback(async () => {
     try {
-      var res = await fetch(API_URL + "/mentor/students", {
-        headers: { Authorization: "Bearer " + token },
-      });
-      var data = await res.json();
+      const data = await apiService.getMentorStudents();
       setStudents(data);
     } catch (err) {
       console.error("Failed to fetch students:", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  var fetchStudentProgress = async function (studentId: string) {
+  useEffect(() => { fetchStudents(); }, [fetchStudents]);
+
+  const fetchStudentProgress = async (studentId: string) => {
     setLoadingProgress(true);
     try {
-      var res = await fetch(API_URL + "/mentor/students/" + studentId + "/progress", {
-        headers: { Authorization: "Bearer " + token },
-      });
-      var data = await res.json();
+      const data = await apiService.getStudentProgress(studentId);
       setSelectedStudent(data.student);
       setStudentProgress(data.progress);
     } catch (err) {
@@ -70,165 +51,185 @@ export default function MentorDashboard() {
     }
   };
 
-  var totalXp = students.reduce(function (sum, s) { return sum + s.xp; }, 0);
-  var totalCompleted = students.reduce(function (sum, s) { return sum + s.completedLessons; }, 0);
-  var avgXp = students.length > 0 ? Math.round(totalXp / students.length) : 0;
+  const totalXp = students.reduce((sum, s) => sum + s.xp, 0);
+  const totalCompleted = students.reduce((sum, s) => sum + (s.completedLessons || 0), 0);
+  const avgXp = students.length > 0 ? Math.round(totalXp / students.length) : 0;
+  const maxXp = Math.max(...students.map((s) => s.xp), 1);
 
-  var getName = function (s: Student) {
-    if (s.firstName) return s.firstName + (s.lastName ? " " + s.lastName : "");
-    return s.username;
-  };
+  if (loading) return <MentorDashboardSkeleton />;
+
+  const getName = (s: { firstName?: string; lastName?: string; username: string }) =>
+    s.firstName ? `${s.firstName}${s.lastName ? ` ${s.lastName}` : ""}` : s.username;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0f172a", fontFamily: "Inter,sans-serif" }}>
-      {/* Header */}
-      <div style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1))", borderBottom: "1px solid #334155", padding: "32px 24px" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-            <Shield size={28} style={{ color: ACCENT }} />
-            <h1 style={{ color: "#f8fafc", fontSize: 28, fontWeight: 900, margin: 0 }}>Mentor Dashboard</h1>
-          </div>
-          <p style={{ color: "#94a3b8", fontSize: 14, margin: 0 }}>Welcome back, {getName(user as any)}. Track your students' progress here.</p>
-        </div>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <PageHeader
+        icon={<Shield className="w-8 h-8" />}
+        title="Mentor Dashboard"
+        subtitle={`Welcome back, ${getName(user as any)}. Track your students' progress here.`}
+        accentColor="text-indigo-400"
+      />
 
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px" }}>
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Stats Cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 32 }}>
-          <div style={{ background: "#1e293b", borderRadius: 16, padding: "20px", border: "1px solid #334155" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <Users size={18} style={{ color: ACCENT }} />
-              <span style={{ color: "#94a3b8", fontSize: 13, fontWeight: 600 }}>Total Students</span>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Users size={16} className="text-indigo-400" />
+              <span className="text-slate-400 text-xs font-semibold">Students</span>
             </div>
-            <div style={{ color: "#f8fafc", fontSize: 32, fontWeight: 900 }}>{students.length}</div>
+            <div className="text-white text-3xl font-black">{students.length}</div>
           </div>
-          <div style={{ background: "#1e293b", borderRadius: 16, padding: "20px", border: "1px solid #334155" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <Trophy size={18} style={{ color: ORANGE }} />
-              <span style={{ color: "#94a3b8", fontSize: 13, fontWeight: 600 }}>Total XP Earned</span>
+          <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Trophy size={16} className="text-orange-400" />
+              <span className="text-slate-400 text-xs font-semibold">Total XP</span>
             </div>
-            <div style={{ color: ORANGE, fontSize: 32, fontWeight: 900 }}>{totalXp.toLocaleString()}</div>
+            <div className="text-orange-400 text-3xl font-black">{totalXp.toLocaleString()}</div>
           </div>
-          <div style={{ background: "#1e293b", borderRadius: 16, padding: "20px", border: "1px solid #334155" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <CheckCircle size={18} style={{ color: GREEN }} />
-              <span style={{ color: "#94a3b8", fontSize: 13, fontWeight: 600 }}>Lessons Completed</span>
+          <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <CheckCircle size={16} className="text-emerald-400" />
+              <span className="text-slate-400 text-xs font-semibold">Completed</span>
             </div>
-            <div style={{ color: GREEN, fontSize: 32, fontWeight: 900 }}>{totalCompleted}</div>
+            <div className="text-emerald-400 text-3xl font-black">{totalCompleted}</div>
           </div>
-          <div style={{ background: "#1e293b", borderRadius: 16, padding: "20px", border: "1px solid #334155" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <TrendingUp size={18} style={{ color: ACCENT }} />
-              <span style={{ color: "#94a3b8", fontSize: 13, fontWeight: 600 }}>Avg XP / Student</span>
+          <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp size={16} className="text-indigo-400" />
+              <span className="text-slate-400 text-xs font-semibold">Avg XP</span>
             </div>
-            <div style={{ color: "#f8fafc", fontSize: 32, fontWeight: 900 }}>{avgXp}</div>
+            <div className="text-white text-3xl font-black">{avgXp}</div>
           </div>
         </div>
 
         {/* Quick Actions */}
-        <div style={{ display: "flex", gap: 12, marginBottom: 32, flexWrap: "wrap" }}>
-          <button onClick={function () { setLocation("/lesson-manager"); }} style={{ padding: "12px 24px", borderRadius: 12, background: "linear-gradient(135deg,#6366f1,#38bdf8)", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, border: "none" }}>
+        <div className="flex gap-3 mb-8 flex-wrap">
+          <button onClick={() => setLocation("/lesson-manager")}
+            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-sky-500 hover:from-indigo-500 hover:to-sky-400 text-white font-bold text-sm transition-all shadow-lg shadow-indigo-500/20">
             <BookOpen size={16} /> Manage Lessons
           </button>
-          <button onClick={function () { setLocation("/chat"); }} style={{ padding: "12px 24px", borderRadius: 12, background: "transparent", color: "#94a3b8", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, border: "1px solid #334155" }}>
+          <button onClick={() => setLocation("/chat")}
+            className="flex items-center gap-2 px-5 py-3 rounded-xl border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white font-bold text-sm transition-colors">
             <MessageSquare size={16} /> Chat with Students
+          </button>
+          <button onClick={() => setLocation("/leaderboard")}
+            className="flex items-center gap-2 px-5 py-3 rounded-xl border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white font-bold text-sm transition-colors">
+            <Trophy size={16} /> View Leaderboard
           </button>
         </div>
 
-        <div style={{ display: "flex", gap: 24, flexDirection: "column" }}>
+        <div className="flex flex-col lg:flex-row gap-6">
           {/* Student List */}
-          <div style={{ background: "#1e293b", borderRadius: 16, border: "1px solid #334155", overflow: "hidden" }}>
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid #334155", display: "flex", alignItems: "center", gap: 8 }}>
-              <Users size={18} style={{ color: ACCENT }} />
-              <h2 style={{ color: "#f8fafc", fontSize: 16, fontWeight: 700, margin: 0 }}>Students</h2>
-              <span style={{ color: "#64748b", fontSize: 13, marginLeft: "auto" }}>{students.length} total</span>
+          <div className="flex-1 bg-slate-800 rounded-xl border border-slate-700/50 overflow-hidden">
+            <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-700/50">
+              <Users size={16} className="text-indigo-400" />
+              <h2 className="text-white text-sm font-bold">Students</h2>
+              <span className="text-slate-500 text-xs ml-auto">{students.length} total</span>
             </div>
 
-            {loading ? (
-              <div style={{ padding: 40, textAlign: "center" }}>
-                <div style={{ width: 32, height: 32, border: "3px solid #334155", borderTopColor: ACCENT, borderRadius: 99, animation: "spin 1s linear infinite", margin: "0 auto" }} />
-                <p style={{ color: "#64748b", fontSize: 13, marginTop: 12 }}>Loading students...</p>
-              </div>
-            ) : students.length === 0 ? (
-              <div style={{ padding: 40, textAlign: "center" }}>
-                <Users size={32} style={{ color: "#334155", margin: "0 auto 8px" }} />
-                <p style={{ color: "#64748b", fontSize: 13 }}>No students registered yet.</p>
-              </div>
+            {students.length === 0 ? (
+              <EmptyState
+                icon={<Users className="w-8 h-8" />}
+                title="No students yet"
+                description="Students will appear here once they register and start learning."
+              />
             ) : (
-              students.map(function (student, i) {
-                var progress = student.totalLessons > 0 ? Math.round((student.completedLessons / Math.max(student.totalLessons, 1)) * 100) : 0;
-                var isSelected = selectedStudent?.id === student.id;
-                return (
-                  <div
-                    key={student.id}
-                    onClick={function () { fetchStudentProgress(student.id); }}
-                    style={{
-                      padding: "14px 20px", borderBottom: i < students.length - 1 ? "1px solid #334155" : undefined,
-                      display: "flex", alignItems: "center", gap: 14, cursor: "pointer",
-                      background: isSelected ? "rgba(99,102,241,0.08)" : "transparent",
-                      borderLeft: isSelected ? "3px solid " + ACCENT : "3px solid transparent",
-                      transition: "all .15s",
-                    }}
-                  >
-                    <div style={{ width: 40, height: 40, borderRadius: 99, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <span style={{ color: "#fff", fontSize: 14, fontWeight: 800 }}>{getName(student)[0].toUpperCase()}</span>
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ color: "#f8fafc", fontSize: 14, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{getName(student)}</div>
-                      <div style={{ color: "#64748b", fontSize: 12 }}>{student.email}</div>
-                    </div>
-                    <div style={{ display: "flex", gap: 16, alignItems: "center", flexShrink: 0 }}>
-                      <div style={{ textAlign: "right" }}>
-                        <div style={{ color: ORANGE, fontSize: 13, fontWeight: 700 }}>{student.xp} XP</div>
-                        <div style={{ color: "#64748b", fontSize: 11 }}>{student.completedLessons}/{Math.max(student.totalLessons, 1)} done</div>
+              <div>
+                {students.map((student, i) => {
+                  const totalLessons = student.totalLessons || 1;
+                  const completed = student.completedLessons || 0;
+                  const progress = totalLessons > 0 ? Math.round((completed / totalLessons) * 100) : 0;
+                  const isSelected = selectedStudent?.id === student.id;
+                  return (
+                    <div
+                      key={student.id}
+                      onClick={() => fetchStudentProgress(student.id)}
+                      className={`flex items-center gap-3 px-5 py-3.5 cursor-pointer transition-all border-l-3 ${
+                        isSelected
+                          ? "bg-indigo-500/10 border-l-indigo-500"
+                          : "border-l-transparent hover:bg-slate-700/30"
+                      } ${i < students.length - 1 ? "border-b border-b-slate-700/50" : ""}`}
+                    >
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0">
+                        <span className="text-white text-sm font-bold">{getName(student)[0].toUpperCase()}</span>
                       </div>
-                      <div style={{ width: 48, height: 6, borderRadius: 99, background: "#334155", overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: progress + "%", background: progress === 100 ? GREEN : ACCENT, borderRadius: 99, transition: "width .3s" }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-white text-sm font-bold truncate">{getName(student)}</div>
+                        <div className="text-slate-500 text-xs">{student.email}</div>
                       </div>
-                      <ChevronRight size={16} style={{ color: "#475569" }} />
+                      <div className="flex items-center gap-4 shrink-0">
+                        <div className="text-right">
+                          <div className="text-orange-400 text-xs font-bold">{student.xp} XP</div>
+                          <div className="text-slate-500 text-[10px]">{completed}/{totalLessons}</div>
+                        </div>
+                        {/* XP Progress Bar */}
+                        <div className="w-14">
+                          <div className="h-1.5 rounded-full bg-slate-700 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{
+                                width: `${(student.xp / maxXp) * 100}%`,
+                                background: progress === 100
+                                  ? "linear-gradient(90deg, #22c55e, #4ade80)"
+                                  : "linear-gradient(90deg, #6366f1, #38bdf8)",
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <ChevronRight size={14} className="text-slate-600" />
+                      </div>
                     </div>
-                  </div>
-                );
-              })
+                  );
+                })}
+              </div>
             )}
           </div>
 
           {/* Student Detail Panel */}
           {selectedStudent && (
-            <div style={{ background: "#1e293b", borderRadius: 16, border: "1px solid #334155", overflow: "hidden" }}>
-              <div style={{ padding: "16px 20px", borderBottom: "1px solid #334155", display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 99, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <span style={{ color: "#fff", fontSize: 14, fontWeight: 800 }}>{getName(selectedStudent)[0].toUpperCase()}</span>
+            <div className="w-full lg:w-96 bg-slate-800 rounded-xl border border-slate-700/50 overflow-hidden shrink-0">
+              <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-700/50">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                  <span className="text-white text-sm font-bold">{getName(selectedStudent)[0].toUpperCase()}</span>
                 </div>
-                <div>
-                  <h3 style={{ color: "#f8fafc", fontSize: 16, fontWeight: 700, margin: 0 }}>{getName(selectedStudent)}</h3>
-                  <span style={{ color: "#64748b", fontSize: 12 }}>{selectedStudent.email}</span>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-white text-sm font-bold truncate">{getName(selectedStudent)}</h3>
+                  <span className="text-slate-500 text-xs">{selectedStudent.email}</span>
                 </div>
-                <button onClick={function () { setLocation("/chat?user=" + selectedStudent!.id); }} style={{ marginLeft: "auto", padding: "8px 16px", borderRadius: 99, background: "transparent", border: "1px solid #334155", color: "#94a3b8", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-                  <MessageSquare size={14} /> Message
+                <button onClick={() => setLocation(`/chat?user=${selectedStudent.id}`)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-white text-xs font-medium transition-colors">
+                  <MessageSquare size={12} /> Message
                 </button>
               </div>
 
               {loadingProgress ? (
-                <div style={{ padding: 30, textAlign: "center" }}>
-                  <p style={{ color: "#64748b", fontSize: 13 }}>Loading progress...</p>
+                <div className="p-8 text-center">
+                  <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                  <p className="text-slate-500 text-xs">Loading progress...</p>
                 </div>
               ) : studentProgress.length === 0 ? (
-                <div style={{ padding: 30, textAlign: "center" }}>
-                  <p style={{ color: "#64748b", fontSize: 13 }}>No lesson progress yet.</p>
+                <div className="p-8 text-center">
+                  <p className="text-slate-500 text-xs">No lesson progress yet.</p>
                 </div>
               ) : (
-                <div style={{ padding: "12px 20px" }}>
-                  {studentProgress.map(function (p, i) {
-                    var statusColor = p.status === "COMPLETED" ? GREEN : p.status === "IN_PROGRESS" ? ORANGE : "#64748b";
+                <div className="px-5 py-3">
+                  {studentProgress.map((p: any, i: number) => {
+                    const statusDot = p.status === "COMPLETED" ? "bg-emerald-400"
+                      : p.status === "IN_PROGRESS" ? "bg-orange-400"
+                      : "bg-slate-500";
                     return (
-                      <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: i < studentProgress.length - 1 ? "1px solid #334155" : undefined }}>
-                        <div style={{ width: 8, height: 8, borderRadius: 99, background: statusColor, flexShrink: 0 }} />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ color: "#e2e8f0", fontSize: 13, fontWeight: 600 }}>{p.lesson?.title || p.lessonId}</div>
-                          <div style={{ color: "#64748b", fontSize: 11 }}>{p.status.replace("_", " ")} | {Math.round(p.accuracy)}% accuracy</div>
+                      <div key={p.id} className={`flex items-center gap-3 py-2.5 ${
+                        i < studentProgress.length - 1 ? "border-b border-slate-700/50" : ""
+                      }`}>
+                        <div className={`w-2 h-2 rounded-full shrink-0 ${statusDot}`} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-slate-200 text-xs font-semibold truncate">{p.lesson?.title || p.lessonId}</div>
+                          <div className="text-slate-500 text-[10px]">{p.status.replace("_", " ")} · {Math.round(p.accuracy)}%</div>
                         </div>
-                        <div style={{ color: "#64748b", fontSize: 11 }}><Clock size={12} /> {new Date(p.updatedAt).toLocaleDateString()}</div>
+                        <div className="text-slate-500 text-[10px] flex items-center gap-1 shrink-0">
+                          <Clock size={10} /> {new Date(p.updatedAt).toLocaleDateString()}
+                        </div>
                       </div>
                     );
                   })}
@@ -237,9 +238,7 @@ export default function MentorDashboard() {
             </div>
           )}
         </div>
-      </div>
-
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      </main>
     </div>
   );
 }

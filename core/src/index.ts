@@ -36,7 +36,7 @@ const isOnline = (userId: string) => {
 };
 
 // Middleware
-const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(o => o.trim()).filter(Boolean);
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map((o: string) => o.trim()).filter(Boolean);
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (curl, server-to-server, same-origin)
@@ -144,7 +144,7 @@ app.post('/auth/login', async (req: Request, res: Response) => {
 // --- PROFILE: GET CURRENT USER ---
 app.get('/users/me', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -171,7 +171,7 @@ app.get('/users/me', authenticateToken, async (req: AuthenticatedRequest, res: R
 // --- PROFILE: UPDATE PROFILE (PUT) ---
 app.put('/users/me', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const { firstName, lastName, bio, avatar } = req.body;
 
     const updatedUser = await prisma.user.update({
@@ -200,7 +200,7 @@ app.put('/users/me', authenticateToken, async (req: AuthenticatedRequest, res: R
 // --- PROFILE: UPDATE PROFILE (PATCH) ---
 app.patch('/users/me', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const { firstName, lastName, bio, avatar } = req.body;
 
     const updatedUser = await prisma.user.update({
@@ -246,7 +246,7 @@ app.get('/lessons', async (_req: Request, res: Response) => {
 app.get('/lessons/:id', async (req: Request, res: Response) => {
   try {
     const lesson = await prisma.lesson.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
     });
 
     if (!lesson) return res.status(404).json({ error: 'Lesson not found' });
@@ -263,7 +263,7 @@ app.get('/lessons/:id', async (req: Request, res: Response) => {
 // --- PROGRESS: GET ALL USER PROGRESS ---
 app.get('/progress', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const progress = await prisma.progress.findMany({
       where: { userId },
       orderBy: { updatedAt: 'desc' },
@@ -277,8 +277,8 @@ app.get('/progress', authenticateToken, async (req: AuthenticatedRequest, res: R
 // --- PROGRESS: GET PROGRESS FOR SPECIFIC LESSON ---
 app.get('/progress/:lessonId', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user?.id;
-    const { lessonId } = req.params;
+    const userId = req.user!.id;
+    const lessonId = req.params.lessonId as string;
 
     const progress = await prisma.progress.findUnique({
       where: { userId_lessonId: { userId, lessonId } },
@@ -297,8 +297,8 @@ app.get('/progress/:lessonId', authenticateToken, async (req: AuthenticatedReque
 // --- PROGRESS: UPDATE PROGRESS ---
 app.patch('/progress/:lessonId', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user?.id;
-    const { lessonId } = req.params;
+    const userId = req.user!.id;
+    const lessonId = req.params.lessonId as string;
     const { status, accuracy } = req.body;
 
     const progress = await prisma.progress.upsert({
@@ -323,10 +323,9 @@ app.patch('/progress/:lessonId', authenticateToken, async (req: AuthenticatedReq
 
 // --- PROGRESS: SAVE ASSESSMENT RESULTS ---
 app.post('/progress/complete', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
-  const { lessonId, accuracy } = req.body;
-  const userId = req.user?.id;
-
-  if (!userId) return res.status(401).json({ error: 'User missing from token' });
+  const lessonId = req.body.lessonId as string;
+  const accuracy = req.body.accuracy;
+  const userId = req.user!.id;
 
   try {
     const record = await prisma.progress.upsert({
@@ -351,8 +350,6 @@ app.post('/progress/complete', authenticateToken, async (req: AuthenticatedReque
 // ============================================================
 
 app.get('/achievements', authenticateToken, async (_req: AuthenticatedRequest, res: Response) => {
-  // Achievement logic not yet implemented — return empty array so the
-  // frontend doesn't break when calling GET /achievements.
   res.json([]);
 });
 
@@ -361,12 +358,10 @@ app.get('/achievements', authenticateToken, async (_req: AuthenticatedRequest, r
 // ============================================================
 
 app.get('/lessons/:id/quiz', async (req: Request, res: Response) => {
-  // Quiz questions not yet stored in the database.
   res.json([]);
 });
 
 app.post('/lessons/:id/quiz/submit', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
-  // Quiz scoring not yet implemented.
   res.json({ score: 0, total: 0, passed: false });
 });
 
@@ -409,7 +404,7 @@ app.get('/mentor/students', authenticateToken, requireMentor, async (_req: Authe
       orderBy: { xp: 'desc' },
     });
     // Add progress count for each student
-    const studentsWithProgress = await Promise.all(students.map(async (s) => {
+    const studentsWithProgress = await Promise.all(students.map(async (s: any) => {
       const progressCount = await prisma.progress.count({ where: { userId: s.id } });
       const completedCount = await prisma.progress.count({ where: { userId: s.id, status: 'COMPLETED' } });
       return { ...s, totalLessons: progressCount, completedLessons: completedCount };
@@ -423,7 +418,7 @@ app.get('/mentor/students', authenticateToken, requireMentor, async (_req: Authe
 // --- MENTOR: GET STUDENT PROGRESS DETAIL ---
 app.get('/mentor/students/:id/progress', authenticateToken, requireMentor, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const studentId = req.params.id;
+    const studentId = req.params.id as string;
     const student = await prisma.user.findUnique({
       where: { id: studentId },
       select: { id: true, email: true, username: true, firstName: true, lastName: true, xp: true, streak: true },
@@ -473,7 +468,7 @@ app.put('/lessons/:id', authenticateToken, requireMentor, async (req: Authentica
   try {
     const { title, description, signLabel, videoUrl, difficulty, category, order, duration } = req.body;
     const lesson = await prisma.lesson.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: {
         ...(title !== undefined && { title }),
         ...(description !== undefined && { description }),
@@ -494,8 +489,8 @@ app.put('/lessons/:id', authenticateToken, requireMentor, async (req: Authentica
 // --- LESSONS: DELETE LESSON (Mentor) ---
 app.delete('/lessons/:id', authenticateToken, requireMentor, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    await prisma.progress.deleteMany({ where: { lessonId: req.params.id } });
-    await prisma.lesson.delete({ where: { id: req.params.id } });
+    await prisma.progress.deleteMany({ where: { lessonId: req.params.id as string } });
+    await prisma.lesson.delete({ where: { id: req.params.id as string } });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete lesson' });
@@ -514,7 +509,6 @@ app.post('/chat/heartbeat', authenticateToken, async (req: AuthenticatedRequest,
 
 // --- CHAT: GET ONLINE STATUS ---
 app.get('/chat/online', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
-  const { userIds } = req.body;
   const ids: string[] = req.query.ids ? (req.query.ids as string).split(',') : [];
   const status: Record<string, boolean> = {};
   for (const id of ids) { status[id] = isOnline(id); }
@@ -529,13 +523,13 @@ app.get('/chat/conversations', authenticateToken, async (req: AuthenticatedReque
     // Find all unique people the user has messaged with
     const sent = await prisma.message.findMany({ where: { senderId: userId }, select: { receiverId: true }, distinct: ['receiverId'] });
     const received = await prisma.message.findMany({ where: { receiverId: userId }, select: { senderId: true }, distinct: ['senderId'] });
-    const userIds = [...new Set([...sent.map(s => s.receiverId), ...received.map(r => r.senderId)])];
+    const userIds = [...new Set([...sent.map((s: any) => s.receiverId), ...received.map((r: any) => r.senderId)])];
     const users = await prisma.user.findMany({
       where: { id: { in: userIds } },
       select: { id: true, username: true, firstName: true, lastName: true, role: true },
     });
     // Get last message + online status for each conversation
-    const conversations = await Promise.all(users.map(async (u) => {
+    const conversations = await Promise.all(users.map(async (u: any) => {
       const lastMsg = await prisma.message.findFirst({
         where: { OR: [{ senderId: userId, receiverId: u.id }, { senderId: u.id, receiverId: userId }] },
         orderBy: { createdAt: 'desc' },
@@ -556,7 +550,7 @@ app.get('/chat/conversations', authenticateToken, async (req: AuthenticatedReque
 app.get('/chat/messages/:userId', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const myId = req.user!.id;
-    const otherId = req.params.userId;
+    const otherId = req.params.userId as string;
     const messages = await prisma.message.findMany({
       where: {
         OR: [

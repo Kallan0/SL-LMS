@@ -6,7 +6,7 @@
 
 import { motion } from "framer-motion";
 import { TrendingUp, Flame, BookOpen, Trophy, Zap } from "lucide-react";
-import { User, Progress } from "../types/index";
+import type { User, Progress } from "../types/index";
 
 export interface ProgressTrackerProps {
   user: User | null;
@@ -25,7 +25,8 @@ export function ProgressTracker({ user, progress }: ProgressTrackerProps) {
   const averageAccuracy = Math.round(
     progress.reduce((sum, p) => sum + (p.accuracy || 0), 0) / (progress.length || 1)
   );
-  const totalXP = user.xp;
+  const totalXP = user.xp ?? 0;
+  const currentStreak = user.streak ?? 0;
 
   const stats = [
     {
@@ -39,7 +40,7 @@ export function ProgressTracker({ user, progress }: ProgressTrackerProps) {
     {
       icon: Flame,
       label: "Current Streak",
-      value: user.streak,
+      value: currentStreak,
       suffix: "days",
       color: "text-orange-400",
       bgColor: "bg-orange-500/20",
@@ -86,12 +87,12 @@ export function ProgressTracker({ user, progress }: ProgressTrackerProps) {
               )}
             </div>
 
-            {stat.total && (
+            {stat.total != null && stat.total > 0 && (
               <div className="mt-3 w-full bg-slate-700 rounded-full h-1.5">
                 <motion.div
                   className="bg-gradient-to-r from-blue-500 to-blue-400 h-1.5 rounded-full"
                   animate={{
-                    width: `${(stat.value / stat.total) * 100}%`,
+                    width: `${Math.min(100, ((stat.value ?? 0) / stat.total) * 100)}%`,
                   }}
                 />
               </div>

@@ -22,7 +22,7 @@ import { useQuery, useMutation } from "@/hooks/useQuery";
 import { apiService } from "@/services/api";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { ErrorBanner } from "@/components/ErrorBanner";
-import { ProgressStatus } from "@/types";
+import type { ProgressStatus } from "@/types";
 
 export interface LessonDetailProps {
   lessonId: string;
@@ -166,8 +166,8 @@ export function LessonDetail({ lessonId }: LessonDetailProps) {
         </div>
       </motion.div>
 
-      {/* Error Banner - Hidden for now */}
-      {false && error && (
+      {/* Error Banner */}
+      {error && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}

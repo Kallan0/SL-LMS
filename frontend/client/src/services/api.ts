@@ -7,7 +7,7 @@
  *   • Handles 401 responses by clearing the stored token and redirecting to /login
  *   • Enforces a configurable request timeout
  */
-import {
+import type {
   User,
   Lesson,
   Progress,
@@ -18,7 +18,14 @@ import {
   LoginRequest,
   LoginResponse,
   ProgressStatus,
+  Conversation,
+  Message,
+  ChatUser,
+  MentorStudent,
 } from "@/types/index";
+
+// Re-export types so consumers can import from api.ts
+export type { Conversation, Message, ChatUser, Lesson, MentorStudent } from "@/types/index";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -175,6 +182,22 @@ export interface IApiService {
 
   // Profile
   updateProfile(updates: Partial<User>): Promise<User>;
+
+  // Lesson CRUD (mentor)
+  createLesson(lesson: Partial<Lesson>): Promise<Lesson>;
+  updateLesson(id: string, lesson: Partial<Lesson>): Promise<Lesson>;
+  deleteLesson(id: string): Promise<{ success: boolean }>;
+
+  // Mentor endpoints
+  getMentorStudents(): Promise<MentorStudent[]>;
+  getStudentProgress(studentId: string): Promise<{ student: MentorStudent; progress: any[] }>;
+
+  // Chat
+  getConversations(): Promise<Conversation[]>;
+  getMessages(userId: string): Promise<Message[]>;
+  sendMessage(receiverId: string, content: string): Promise<Message>;
+  getAllUsers(): Promise<ChatUser[]>;
+  sendHeartbeat(): Promise<void>;
 }
 
 // ─── Production Implementation (FastAPI) ─────────────────────────────────────
@@ -279,6 +302,81 @@ class ProductionApiService implements IApiService {
       body: JSON.stringify(updates),
     });
   }
+
+  // ── Lesson CRUD (mentor) ───────────────────────────────────────────────
+
+  async createLesson(lesson: Partial<Lesson>): Promise<Lesson> {
+    return apiFetch<Lesson>("/lessons", {
+      method: "POST",
+      body: JSON.stringify(lesson),
+    });
+  }
+
+  async updateLesson(id: string, lesson: Partial<Lesson>): Promise<Lesson> {
+    return apiFetch<Lesson>(`/lessons/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(lesson),
+    });
+  }
+
+  async deleteLesson(id: string): Promise<{ success: boolean }> {
+    return apiFetch<{ success: boolean }>(`/lessons/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  // ── Mentor endpoints ──────────────────────────────────────────────────
+
+  async getMentorStudents(): Promise<MentorStudent[]> {
+    return apiFetch<MentorStudent[]>("/mentor/students");
+  }
+
+  async getStudentProgress(studentId: string): Promise<{ student: MentorStudent; progress: any[] }> {
+    return apiFetch(`/mentor/students/${studentId}/progress`);
+  }
+
+  // ── Chat ──────────────────────────────────────────────────────────────
+
+  async getConversations(): Promise<Conversation[]> {
+    return apiFetch<Conversation[]>("/chat/conversations");
+  }
+
+  async getMessages(userId: string): Promise<Message[]> {
+    return apiFetch<Message[]>(`/chat/messages/${userId}`);
+  }
+
+  async sendMessage(receiverId: string, content: string): Promise<Message> {
+    return apiFetch<Message>("/chat/messages", {
+      method: "POST",
+      body: JSON.stringify({ receiverId, content }),
+    });
+  }
+
+  async getAllUsers(): Promise<ChatUser[]> {
+    // For mentors, get their students; for students, get leaderboard
+    const leaders = await apiFetch<LeaderboardEntry[]>("/leaderboard");
+    return leaders.map((l) => ({
+      id: l.id,
+      username: l.username,
+      xp: l.xp,
+      role: "STUDENT",
+    }));
+  }
+
+  async sendHeartbeat(): Promise<void> {
+    await apiFetch("/chat/heartbeat", { method: "POST" });
+  }
 }
 
-export const apiService = new ProductionApiService();
+// ─── Service selection ────────────────────────────────────────────────────────
+//
+// Set VITE_USE_MOCK=true in .env to use mock data, or leave it unset to use
+// the real backend.
+//
+import { MockApiService } from "./mockApi";
+
+const useMock = import.meta.env.VITE_USE_MOCK === "true";
+
+export const apiService: IApiService = useMock
+  ? new MockApiService()
+  : new ProductionApiService();

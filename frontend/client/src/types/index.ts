@@ -1,14 +1,5 @@
 // frontend/client/src/types/index.ts
 
-
-export type role = "STUDENT" | "MENTOR"
-
-export enum ProgressStatus {
-  NOT_STARTED = "NOT_STARTED",
-  IN_PROGRESS = "IN_PROGRESS",
-  COMPLETED = "COMPLETED",
-}
-
 export interface User {
   id: string;
   email?: string;
@@ -20,186 +11,190 @@ export interface User {
   role: string;
   xp?: number;
   streak?: number;
-  totalXP?: number;
-  currentStreak?: number;
-  longestStreak?: number;
-  joinedDate?: string;
-  createdAt?: string;
-  preferences?: {
-    theme?: string;
-    language?: string;
-    notifications?: {
-      email?: boolean;
-      push?: boolean;
-      lessonsReminder?: boolean;
-    };
-    accessibility?: {
-      captions?: boolean;
-      highContrast?: boolean;
-      textSize?: string;
-    };
-  };
 }
 
 export interface AuthToken {
   access_token: string;
   token_type: string;
   expiresIn: number;
-  
 }
+
+export type ProgressStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
 
 export interface LoginRequest {
   email: string;
-  password?: string;
+  password: string;
 }
 
 export interface LoginResponse {
-  user: User;
   token: AuthToken;
-}
-
-export interface Progress {
-  id?: string;
-  userId: string;
-  lessonId: string;
-  status: ProgressStatus;
-  accuracy?: number;
-  startedAt?: string;
-  completedAt?: string;
-  lastAccessedAt?: string;
-  xpEarned?: number;
-  exercisesCompleted?: number;
-  totalExercises?: number;
-  notes?: string;
-  updatedAt?: string;
+  user: User;
 }
 
 export enum LessonDifficulty {
-  BEGINNER = "beginner",
-  INTERMEDIATE = "intermediate",
-  ADVANCED = "advanced",
+  BEGINNER = "BEGINNER",
+  INTERMEDIATE = "INTERMEDIATE",
+  ADVANCED = "ADVANCED",
 }
 
 export enum LessonCategory {
-  ALPHABET = "alphabet",
-  NUMBERS = "numbers",
-  WORDS = "words",
-  PHRASES = "phrases",
-  CONVERSATION = "conversation",
-  GRAMMAR = "grammar",
+  ALPHABET = "ALPHABET",
+  NUMBERS = "NUMBERS",
+  PHRASES = "PHRASES",
+  CONVERSATION = "CONVERSATION",
+  GRAMMAR = "GRAMMAR",
 }
 
+export interface LessonStep {
+  title: string;
+  description: string;
+  videoUrl?: string;
+  tips?: string[];
+}
 
-export enum UserRole {
-  STUDENT = "student",
-  MENTOR = "mentor",
+export interface PracticeExercise {
+  id: string;
+  title: string;
+  type: string;
+}
+
+export interface LessonContent {
+  introduction: string;
+  steps: LessonStep[];
+  practiceExercises: PracticeExercise[];
+  summary: string;
 }
 
 export interface Lesson {
   id: string;
   title: string;
-  target_sign?: string;
   description?: string;
-  category?: LessonCategory | string;
-  difficulty?: LessonDifficulty | string;
-  xp_reward?: number;
-  is_locked?: boolean;
-  signLabel?: string;
-  order?: number;
-  duration?: number;
+  signLabel: string;
   videoUrl?: string;
-  thumbnailUrl?: string;
-  estimatedCompletionTime?: number;
-  prerequisites?: string[];
+  difficulty?: LessonDifficulty | string;
+  category?: LessonCategory | string;
+  order: number;
+  duration?: number;
   createdAt?: string;
+  content?: LessonContent;
+}
+
+export interface Progress {
+  id: string;
+  userId: string;
+  lessonId: string;
+  status: ProgressStatus;
+  accuracy: number;
   updatedAt?: string;
-  content?: {
-    introduction?: string;
-    steps?: {
-      id: string;
-      title: string;
-      description: string;
-      videoUrl?: string;
-      tips?: string[];
-      order: number;
-    }[];
-    practiceExercises?: {
-      id: string;
-      title: string;
-      description: string;
-      type: string;
-      difficulty?: LessonDifficulty | string;
-      instructions?: string;
-    }[];
-    summary?: string;
-  };
+  completedAt?: string;
+  lastAccessedAt?: string;
+  exercisesCompleted?: number;
+  totalExercises?: number;
+  lesson?: Lesson;
 }
-
-
-export interface UserProgress {
-  id: number;
-  user_id: number;
-  lesson_id: number;
-  is_passed: boolean;
-  completed_at?: string;
-}
-
-export interface GestureSubmission {
-  lesson_id: number;
-  features: number[];
-}
-
-export interface GestureResponse {
-  target_sign: string;
-  ai_prediction: string;
-  confidence: number;
-  is_correct: boolean;
-  message: string;
-  xp_awarded: number;
-} 
 
 export interface LeaderboardEntry {
   id: string;
-  username: string;
-  xp: number;
-  streak: number;
-  avatar?: string | null;
-  // Fields used by Leaderboard.tsx
   userId?: string;
-  rank?: number;
+  username: string;
   userName?: string;
-  userAvatar?: string;
+  xp: number;
   totalXP?: number;
-  lessonsCompleted?: number;
+  streak?: number;
   currentStreak?: number;
+  avatar?: string;
+  userAvatar?: string;
+  rank?: number;
+  lessonsCompleted?: number;
   masteredLessons?: number;
 }
 
-// --- QUIZ & ACHIEVEMENTS ---
 export interface Achievement {
   id: string;
-  title?: string;
-  name?: string;
-  description: string;
-  icon: string;
+  name: string;
+  description?: string;
+  icon?: string;
   unlockedAt?: string;
-  rarity?: string;
 }
 
 export interface QuizQuestion {
   id: string;
-  lessonId: string;
   question: string;
-  options: string[] | { id: string; text: string }[];
-  correctAnswer?: string;
-  correctAnswerId?: string;
+  options: { id: string; text: string }[];
+  correctAnswer: string;
   explanation?: string;
-  type?: string;
-  difficulty?: LessonDifficulty | string;
 }
 
 export interface QuizResult {
   score: number;
   total: number;
   passed: boolean;
+}
+
+export interface Message {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  read: boolean;
+  createdAt: string;
+}
+
+export interface Conversation {
+  id: string;
+  username: string;
+  firstName?: string;
+  lastName?: string;
+  role: string;
+  lastMessage?: string;
+  lastMessageAt?: string;
+  unreadCount?: number;
+  online?: boolean;
+}
+
+export interface Student {
+  id: string;
+  email: string;
+  username: string;
+  firstName?: string;
+  lastName?: string;
+  xp: number;
+  streak: number;
+  createdAt?: string;
+  totalLessons?: number;
+  completedLessons?: number;
+}
+
+export interface Conversation {
+  id: string;
+  username: string;
+  firstName?: string;
+  lastName?: string;
+  role: string;
+  lastMessage?: string;
+  lastMessageAt?: string;
+  unreadCount?: number;
+}
+
+export interface ChatUser {
+  id: string;
+  username: string;
+  firstName?: string;
+  lastName?: string;
+  role: string;
+  xp?: number;
+  streak?: number;
+}
+
+export interface MentorStudent {
+  id: string;
+  email: string;
+  username: string;
+  firstName?: string;
+  lastName?: string;
+  xp: number;
+  streak: number;
+  createdAt?: string;
+  totalLessons?: number;
+  completedLessons?: number;
 }

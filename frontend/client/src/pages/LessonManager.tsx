@@ -1,87 +1,121 @@
-import { useState, useEffect } from "react";
+/**
+ * LessonManager Page
+ *
+ * Mentor-only page for creating, editing, and deleting lessons.
+ */
+
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
-import {
-  BookOpen, Plus, Pencil, Trash2, Save, X, ArrowLeft,
-  Video, Tag, Clock, GripVertical, AlertTriangle,
-} from "lucide-react";
-import { useAuthContext } from "@/contexts/AuthContext";
+import { BookOpen, Plus, Pencil, Trash2, Save, Video, Clock, AlertTriangle } from "lucide-react";
+import { apiService, type Lesson } from "@/services/api";
+import { LogoutConfirmModal } from "@/components/LogoutConfirmModal";
+import { LessonManagerSkeleton } from "@/components/PageSkeletons";
+import { PageHeader } from "@/components/PageHeader";
+import { EmptyState } from "@/components/EmptyState";
 
-var ACCENT = "#6366f1";
-var GREEN = "#22c55e";
-var RED = "#ef4444";
-
-interface Lesson {
-  id: string;
+interface LessonForm {
   title: string;
-  description: string | null;
+  description: string;
   signLabel: string;
-  videoUrl: string | null;
-  difficulty: string | null;
-  category: string | null;
+  videoUrl: string;
+  difficulty: string;
+  category: string;
   order: number;
   duration: number;
-  createdAt: string;
 }
 
-var emptyLesson = { title: "", description: "", signLabel: "", videoUrl: "", difficulty: "BEGINNER", category: "ALPHABET", order: 0, duration: 10 };
+const emptyForm: LessonForm = {
+  title: "",
+  description: "",
+  signLabel: "",
+  videoUrl: "",
+  difficulty: "BEGINNER",
+  category: "ALPHABET",
+  order: 0,
+  duration: 10,
+};
 
 export default function LessonManager() {
-  var [, setLocation] = useLocation();
-  var { user } = useAuthContext();
-  var [lessons, setLessons] = useState<Lesson[]>([]);
-  var [loading, setLoading] = useState(true);
-  var [editingId, setEditingId] = useState<string | null>(null);
-  var [editForm, setEditForm] = useState(emptyLesson);
-  var [showNew, setShowNew] = useState(false);
-  var [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [, setLocation] = useLocation();
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<LessonForm>(emptyForm);
+  const [showNew, setShowNew] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  var token = localStorage.getItem("sign_language_lms_token");
-  var API_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:5000";
-
-  var headers = { "Content-Type": "application/json", Authorization: "Bearer " + token };
-
-  useEffect(function () { fetchLessons(); }, []);
-
-  var fetchLessons = async function () {
+  const fetchLessons = useCallback(async () => {
     try {
-      var res = await fetch(API_URL + "/lessons");
-      setLessons(await res.json());
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
+      const data = await apiService.getLessons();
+      setLessons(data);
+    } catch (err) {
+      console.error("Failed to fetch lessons:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchLessons(); }, [fetchLessons]);
+
+  const createLesson = async () => {
+    if (!editForm.title.trim()) return;
+    try {
+      setSaving(true);
+      await apiService.createLesson({
+        title: editForm.title,
+        description: editForm.description || undefined,
+        signLabel: editForm.signLabel,
+        videoUrl: editForm.videoUrl || undefined,
+        difficulty: editForm.difficulty,
+        category: editForm.category,
+        order: editForm.order,
+        duration: editForm.duration,
+      });
+      setShowNew(false);
+      setEditForm(emptyForm);
+      fetchLessons();
+    } catch (err) {
+      console.error("Failed to create lesson:", err);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  var createLesson = async function () {
+  const updateLesson = async (id: string) => {
+    if (!editForm.title.trim()) return;
     try {
-      var res = await fetch(API_URL + "/lessons", { method: "POST", headers: headers, body: JSON.stringify(editForm) });
-      if (res.ok) {
-        setShowNew(false);
-        setEditForm(emptyLesson);
-        fetchLessons();
-      }
-    } catch (err) { console.error(err); }
+      setSaving(true);
+      await apiService.updateLesson(id, {
+        title: editForm.title,
+        description: editForm.description || undefined,
+        signLabel: editForm.signLabel,
+        videoUrl: editForm.videoUrl || undefined,
+        difficulty: editForm.difficulty,
+        category: editForm.category,
+        order: editForm.order,
+        duration: editForm.duration,
+      });
+      setEditingId(null);
+      fetchLessons();
+    } catch (err) {
+      console.error("Failed to update lesson:", err);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  var updateLesson = async function (id: string) {
+  const deleteLesson = async (id: string) => {
     try {
-      var res = await fetch(API_URL + "/lessons/" + id, { method: "PUT", headers: headers, body: JSON.stringify(editForm) });
-      if (res.ok) {
-        setEditingId(null);
-        fetchLessons();
-      }
-    } catch (err) { console.error(err); }
+      await apiService.deleteLesson(id);
+      setDeleteConfirm(null);
+      fetchLessons();
+    } catch (err) {
+      console.error("Failed to delete lesson:", err);
+    }
   };
 
-  var deleteLesson = async function (id: string) {
-    try {
-      var res = await fetch(API_URL + "/lessons/" + id, { method: "DELETE", headers: headers });
-      if (res.ok) {
-        setDeleteConfirm(null);
-        fetchLessons();
-      }
-    } catch (err) { console.error(err); }
-  };
-
-  var startEdit = function (lesson: Lesson) {
+  const startEdit = (lesson: Lesson) => {
     setEditingId(lesson.id);
     setEditForm({
       title: lesson.title,
@@ -91,162 +125,190 @@ export default function LessonManager() {
       difficulty: lesson.difficulty || "BEGINNER",
       category: lesson.category || "ALPHABET",
       order: lesson.order,
-      duration: lesson.duration,
+      duration: lesson.duration ?? 10,
     });
   };
 
-  var inputStyle: React.CSSProperties = {
-    width: "100%", padding: "10px 14px", borderRadius: 10, background: "#0f172a",
-    border: "1px solid #334155", color: "#f8fafc", fontSize: 13, outline: "none",
-    fontFamily: "Inter,sans-serif", boxSizing: "border-box" as const,
-  };
+  const inputClass =
+    "w-full px-3 py-2.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors";
 
-  var labelStyle: React.CSSProperties = {
-    color: "#94a3b8", fontSize: 11, fontWeight: 700, letterSpacing: 1.5, marginBottom: 6, display: "block", textTransform: "uppercase",
-  };
+  const labelClass =
+    "block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5";
 
-  var selectStyle: React.CSSProperties = {
-    ...inputStyle, cursor: "pointer",
-  };
-
-  var LessonForm = function (props: { onSave: () => void; onCancel: () => void }) {
-    return (
-      <div style={{ background: "#0f172a", borderRadius: 12, border: "1px solid #334155", padding: 20, marginTop: 12 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          <div style={{ gridColumn: "1 / -1" }}>
-            <label style={labelStyle}>Title *</label>
-            <input style={inputStyle} placeholder="e.g. ISL Alphabet A-E" value={editForm.title} onChange={function (e) { setEditForm({ ...editForm, title: e.target.value }); }} />
-          </div>
-          <div style={{ gridColumn: "1 / -1" }}>
-            <label style={labelStyle}>Description</label>
-            <textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical" }} placeholder="Lesson description..." value={editForm.description} onChange={function (e) { setEditForm({ ...editForm, description: e.target.value }); }} />
-          </div>
-          <div>
-            <label style={labelStyle}>Sign Label</label>
-            <input style={inputStyle} placeholder="e.g. A-E" value={editForm.signLabel} onChange={function (e) { setEditForm({ ...editForm, signLabel: e.target.value }); }} />
-          </div>
-          <div>
-            <label style={labelStyle}>YouTube URL</label>
-            <input style={inputStyle} placeholder="https://youtube.com/embed/..." value={editForm.videoUrl} onChange={function (e) { setEditForm({ ...editForm, videoUrl: e.target.value }); }} />
-          </div>
-          <div>
-            <label style={labelStyle}>Difficulty</label>
-            <select style={selectStyle} value={editForm.difficulty} onChange={function (e) { setEditForm({ ...editForm, difficulty: e.target.value }); }}>
-              <option value="BEGINNER">Beginner</option>
-              <option value="INTERMEDIATE">Intermediate</option>
-              <option value="ADVANCED">Advanced</option>
-            </select>
-          </div>
-          <div>
-            <label style={labelStyle}>Category</label>
-            <select style={selectStyle} value={editForm.category} onChange={function (e) { setEditForm({ ...editForm, category: e.target.value }); }}>
-              <option value="ALPHABET">Alphabet</option>
-              <option value="NUMBERS">Numbers</option>
-              <option value="PHRASES">Phrases</option>
-              <option value="CONVERSATION">Conversation</option>
-              <option value="GRAMMAR">Grammar</option>
-            </select>
-          </div>
-          <div>
-            <label style={labelStyle}>Order</label>
-            <input style={inputStyle} type="number" value={editForm.order} onChange={function (e) { setEditForm({ ...editForm, order: parseInt(e.target.value) || 0 }); }} />
-          </div>
-          <div>
-            <label style={labelStyle}>Duration (min)</label>
-            <input style={inputStyle} type="number" value={editForm.duration} onChange={function (e) { setEditForm({ ...editForm, duration: parseInt(e.target.value) || 5 }); }} />
-          </div>
+  const LessonFormComponent = ({ onSave, onCancel }: { onSave: () => void; onCancel: () => void }) => (
+    <div className="bg-slate-900 rounded-xl border border-slate-700 p-5 mt-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="col-span-full">
+          <label className={labelClass}>Title *</label>
+          <input className={inputClass} placeholder="e.g. ISL Alphabet A-E" value={editForm.title}
+            onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} />
         </div>
-        <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-          <button onClick={props.onSave} style={{ padding: "10px 20px", borderRadius: 10, background: GREEN, color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", border: "none", display: "flex", alignItems: "center", gap: 6 }}>
-            <Save size={14} /> Save
-          </button>
-          <button onClick={props.onCancel} style={{ padding: "10px 20px", borderRadius: 10, background: "transparent", color: "#94a3b8", border: "1px solid #334155", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
-            Cancel
-          </button>
+        <div className="col-span-full">
+          <label className={labelClass}>Description</label>
+          <textarea className={`${inputClass} min-h-[60px] resize-vertical`} placeholder="Lesson description..."
+            value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
+        </div>
+        <div>
+          <label className={labelClass}>Sign Label</label>
+          <input className={inputClass} placeholder="e.g. A-E" value={editForm.signLabel}
+            onChange={(e) => setEditForm({ ...editForm, signLabel: e.target.value })} />
+        </div>
+        <div>
+          <label className={labelClass}>YouTube URL</label>
+          <input className={inputClass} placeholder="https://youtube.com/embed/..." value={editForm.videoUrl}
+            onChange={(e) => setEditForm({ ...editForm, videoUrl: e.target.value })} />
+        </div>
+        <div>
+          <label className={labelClass}>Difficulty</label>
+          <select className={`${inputClass} cursor-pointer`} value={editForm.difficulty}
+            onChange={(e) => setEditForm({ ...editForm, difficulty: e.target.value })}>
+            <option value="BEGINNER">Beginner</option>
+            <option value="INTERMEDIATE">Intermediate</option>
+            <option value="ADVANCED">Advanced</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelClass}>Category</label>
+          <select className={`${inputClass} cursor-pointer`} value={editForm.category}
+            onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}>
+            <option value="ALPHABET">Alphabet</option>
+            <option value="NUMBERS">Numbers</option>
+            <option value="PHRASES">Phrases</option>
+            <option value="CONVERSATION">Conversation</option>
+            <option value="GRAMMAR">Grammar</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelClass}>Order</label>
+          <input className={inputClass} type="number" value={editForm.order}
+            onChange={(e) => setEditForm({ ...editForm, order: parseInt(e.target.value) || 0 })} />
+        </div>
+        <div>
+          <label className={labelClass}>Duration (min)</label>
+          <input className={inputClass} type="number" value={editForm.duration}
+            onChange={(e) => setEditForm({ ...editForm, duration: parseInt(e.target.value) || 5 })} />
         </div>
       </div>
-    );
-  };
+      <div className="flex gap-3 mt-5">
+        <button onClick={onSave} disabled={saving}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold transition-colors disabled:opacity-50">
+          <Save size={14} /> {saving ? "Saving..." : "Save"}
+        </button>
+        <button onClick={onCancel}
+          className="px-5 py-2.5 rounded-lg bg-transparent text-slate-400 border border-slate-700 text-sm font-semibold hover:bg-slate-800 transition-colors">
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0f172a", fontFamily: "Inter,sans-serif" }}>
-      {/* Header */}
-      <div style={{ background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1))", borderBottom: "1px solid #334155", padding: "24px" }}>
-        <div style={{ maxWidth: 1000, margin: "0 auto", display: "flex", alignItems: "center", gap: 12 }}>
-          <button onClick={function () { setLocation("/dashboard"); }} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
-            <ArrowLeft size={16} /> Back
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      <PageHeader
+        icon={<BookOpen className="w-8 h-8" />}
+        title="Lesson Manager"
+        subtitle="Create, edit, and organize your ISL curriculum"
+        accentColor="text-indigo-400"
+        actions={
+          <button onClick={() => setLocation("/dashboard")}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-slate-400 hover:bg-slate-700/50 text-sm transition-colors">
+            ← Back to Dashboard
           </button>
-          <BookOpen size={24} style={{ color: ACCENT }} />
-          <h1 style={{ color: "#f8fafc", fontSize: 22, fontWeight: 900, margin: 0 }}>Lesson Manager</h1>
-        </div>
-      </div>
+        }
+      />
 
-      <div style={{ maxWidth: 1000, margin: "0 auto", padding: "24px" }}>
-        {/* Add New Button */}
-        <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ color: "#94a3b8", fontSize: 14 }}>{lessons.length} lessons</span>
-          <button onClick={function () { setShowNew(!showNew); setEditForm(emptyLesson); }} style={{ padding: "10px 20px", borderRadius: 10, background: "linear-gradient(135deg,#6366f1,#38bdf8)", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", border: "none", display: "flex", alignItems: "center", gap: 6 }}>
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Action Bar */}
+        <div className="flex items-center justify-between mb-6">
+          <span className="text-slate-400 text-sm font-medium">{lessons.length} lessons</span>
+          <button onClick={() => { setShowNew(!showNew); setEditForm(emptyForm); }}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-indigo-600 to-sky-500 hover:from-indigo-500 hover:to-sky-400 text-white text-sm font-bold transition-all shadow-lg shadow-indigo-500/20">
             <Plus size={16} /> Add Lesson
           </button>
         </div>
 
         {/* New Lesson Form */}
-        {showNew && (
-          <LessonForm onSave={createLesson} onCancel={function () { setShowNew(false); }} />
-        )}
+        {showNew && <LessonFormComponent onSave={createLesson} onCancel={() => setShowNew(false)} />}
 
         {/* Lessons List */}
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center" }}>
-            <div style={{ width: 32, height: 32, border: "3px solid #334155", borderTopColor: ACCENT, borderRadius: 99, animation: "spin 1s linear infinite", margin: "0 auto" }} />
-          </div>
+          <LessonManagerSkeleton />
+        ) : lessons.length === 0 ? (
+          <EmptyState
+            icon={<BookOpen className="w-8 h-8" />}
+            title="No lessons yet"
+            description='Click "Add Lesson" to create your first ISL lesson and start building your curriculum.'
+            action={{ label: "Add Lesson", onClick: () => setShowNew(true), icon: <Plus size={16} /> }}
+          />
         ) : (
-          lessons.map(function (lesson) {
-            var isEditing = editingId === lesson.id;
-            var isDeleting = deleteConfirm === lesson.id;
-            return (
-              <div key={lesson.id} style={{ background: "#1e293b", borderRadius: 12, border: "1px solid #334155", marginBottom: 12, overflow: "hidden" }}>
-                <div style={{ padding: "14px 18px", display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ color: "#475569", fontSize: 12, fontFamily: "DM Mono,monospace", width: 24, textAlign: "center" }}>#{lesson.order}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: "#f8fafc", fontSize: 14, fontWeight: 700 }}>{lesson.title}</div>
-                    <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
-                      <span style={{ color: "#64748b", fontSize: 11 }}>{lesson.signLabel}</span>
-                      {lesson.difficulty && <span style={{ color: "#94a3b8", fontSize: 11, padding: "1px 8px", borderRadius: 99, background: "#334155" }}>{lesson.difficulty}</span>}
-                      {lesson.category && <span style={{ color: "#94a3b8", fontSize: 11, padding: "1px 8px", borderRadius: 99, background: "#334155" }}>{lesson.category}</span>}
-                      {lesson.videoUrl && <span style={{ color: GREEN, fontSize: 11, display: "flex", alignItems: "center", gap: 3 }}><Video size={10} /> Video</span>}
-                      <span style={{ color: "#64748b", fontSize: 11, display: "flex", alignItems: "center", gap: 3 }}><Clock size={10} /> {lesson.duration}m</span>
+          <div className="space-y-3">
+            {lessons.map((lesson) => {
+              const isEditing = editingId === lesson.id;
+              const isDeleting = deleteConfirm === lesson.id;
+              return (
+                <div key={lesson.id} className="bg-slate-800 rounded-xl border border-slate-700/50 overflow-hidden hover:border-slate-600 transition-colors">
+                  <div className="flex items-center gap-3 px-5 py-4">
+                    <div className="text-slate-500 text-xs font-mono w-7 text-center shrink-0">#{lesson.order}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-white text-sm font-bold truncate">{lesson.title}</div>
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        <span className="text-slate-500 text-xs">{lesson.signLabel}</span>
+                        {lesson.difficulty && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-300 font-medium">
+                            {lesson.difficulty}
+                          </span>
+                        )}
+                        {lesson.category && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-300 font-medium">
+                            {lesson.category}
+                          </span>
+                        )}
+                        {lesson.videoUrl && (
+                          <span className="text-emerald-400 text-xs flex items-center gap-1">
+                            <Video size={10} /> Video
+                          </span>
+                        )}
+                        <span className="text-slate-500 text-xs flex items-center gap-1">
+                          <Clock size={10} /> {lesson.duration}m
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button onClick={() => startEdit(lesson)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:bg-slate-700/50 hover:text-white text-xs font-medium transition-colors">
+                        <Pencil size={12} /> Edit
+                      </button>
+                      <button onClick={() => setDeleteConfirm(lesson.id)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 text-red-400 hover:bg-red-600/10 hover:border-red-600/30 text-xs font-medium transition-colors">
+                        <Trash2 size={12} />
+                      </button>
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={function () { startEdit(lesson); }} style={{ padding: "6px 10px", borderRadius: 8, background: "transparent", border: "1px solid #334155", color: "#94a3b8", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}>
-                      <Pencil size={12} /> Edit
-                    </button>
-                    <button onClick={function () { setDeleteConfirm(lesson.id); }} style={{ padding: "6px 10px", borderRadius: 8, background: "transparent", border: "1px solid #334155", color: RED, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}>
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
+
+                  {/* Edit Form */}
+                  {isEditing && <LessonFormComponent onSave={() => updateLesson(lesson.id)} onCancel={() => setEditingId(null)} />}
+
+                  {/* Delete Confirm */}
+                  {isDeleting && (
+                    <div className="flex items-center gap-3 px-5 py-3 bg-red-500/5 border-t border-red-500/20">
+                      <AlertTriangle size={16} className="text-red-400 shrink-0" />
+                      <span className="text-slate-200 text-sm flex-1">Delete "{lesson.title}"? This cannot be undone.</span>
+                      <button onClick={() => deleteLesson(lesson.id)}
+                        className="px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-colors">
+                        Delete
+                      </button>
+                      <button onClick={() => setDeleteConfirm(null)}
+                        className="px-4 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:bg-slate-800 text-xs font-medium transition-colors">
+                        Cancel
+                      </button>
+                    </div>
+                  )}
                 </div>
-
-                {/* Edit Form */}
-                {isEditing && <LessonForm onSave={function () { updateLesson(lesson.id); }} onCancel={function () { setEditingId(null); }} />}
-
-                {/* Delete Confirm */}
-                {isDeleting && (
-                  <div style={{ padding: "12px 18px", background: "rgba(239,68,68,0.05)", borderTop: "1px solid rgba(239,68,68,0.2)", display: "flex", alignItems: "center", gap: 12 }}>
-                    <AlertTriangle size={16} style={{ color: RED }} />
-                    <span style={{ color: "#e2e8f0", fontSize: 13, flex: 1 }}>Delete "{lesson.title}"? This cannot be undone.</span>
-                    <button onClick={function () { deleteLesson(lesson.id); }} style={{ padding: "6px 16px", borderRadius: 8, background: RED, color: "#fff", fontWeight: 600, fontSize: 12, cursor: "pointer", border: "none" }}>Delete</button>
-                    <button onClick={function () { setDeleteConfirm(null); }} style={{ padding: "6px 16px", borderRadius: 8, background: "transparent", color: "#94a3b8", border: "1px solid #334155", fontSize: 12, cursor: "pointer" }}>Cancel</button>
-                  </div>
-                )}
-              </div>
-            );
-          })
+              );
+            })}
+          </div>
         )}
-      </div>
-
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      </main>
     </div>
   );
 }
