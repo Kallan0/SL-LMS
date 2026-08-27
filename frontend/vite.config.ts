@@ -1,10 +1,11 @@
+/// <reference types="vitest" />
 import { jsxLocPlugin } from "@builder.io/vite-plugin-jsx-loc";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import fs from "node:fs";
 import path from "node:path";
 import { defineConfig, type Plugin, type ViteDevServer } from "vite";
-import { vitePluginManusRuntime } from "vite-plugin-manus-runtime";
+
 
 // =============================================================================
 // Manus Debug Collector - Vite Plugin
@@ -203,7 +204,7 @@ function vitePluginStorageProxy(): Plugin {
   };
 }
 
-const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector(), vitePluginStorageProxy()];
+const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusDebugCollector(), vitePluginStorageProxy()];
 
 export default defineConfig({
   plugins,
@@ -222,7 +223,7 @@ export default defineConfig({
   },
   server: {
     port: 8000,
-    strictPort: false, // Will find next available port if 3000 is busy
+    strictPort: false, // Will find next available port if 8000 is busy
     host: true,
     allowedHosts: [
       ".manuspre.computer",
@@ -237,11 +238,5 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
-  },
-  test: {
-    globals: true,
-    environment: "node",
-    include: ["src/**/*.test.ts"],
-    testTimeout: 30000,
   },
 });
