@@ -36,7 +36,10 @@ const isOnline = (userId: string) => {
 };
 
 // Middleware
-const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map((o: string) => o.trim()).filter(Boolean);
+const allowedOrigins = [
+  'https://sl-lms-ten.vercel.app',
+  process.env.FRONTEND_URL 
+];
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (curl, server-to-server, same-origin)
