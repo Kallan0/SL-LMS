@@ -47,7 +47,7 @@ model Lesson {
   difficulty  String?    // BEGINNER, INTERMEDIATE, ADVANCED
   category    String?    // ALPHABET, NUMBERS, PHRASES, etc.
   order       Int
-  createdAt   DateTime
+  createdAt   DateTime @default(now())
   duration    Int        @default(5)
   progress    Progress[]
 }
