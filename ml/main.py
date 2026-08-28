@@ -6,8 +6,6 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from schemas import PixelPayload, PredictionOut, VerifySignPayload, VerifySignOut
-import urllib.request
-import shutil
 
 load_dotenv()
 
@@ -48,35 +46,9 @@ pca = None
 label_encoder = None
 
 MODEL_PATH = os.getenv("MODEL_PATH", "./models/isl_classifier.pkl")
-MODEL_URL = os.getenv("MODEL_URL", "")          # e.g. https://pub-xxx.r2.dev/isl_classifier.pkl
-TRAIN_DATA_URL = os.getenv("TRAIN_DATA_URL", "")  # e.g. https://pub-xxx.r2.dev/train_ISL.csv
-
-# Resolve paths relative to this file so the server works from any working directory
-_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(_DIR, MODEL_PATH) if not os.path.isabs(MODEL_PATH) else MODEL_PATH
-
-
-def _download_file(url: str, dest: str) -> bool:
-    """Download a file from a URL to a local path. Returns True on success."""
-    try:
-        os.makedirs(os.path.dirname(dest), exist_ok=True)
-        print(f"Downloading {url} -> {dest} ...")
-        urllib.request.urlretrieve(url, dest)
-        size_mb = os.path.getsize(dest) / (1024 * 1024)
-        print(f"  Downloaded {size_mb:.1f} MB")
-        return True
-    except Exception as e:
-        print(f"  Download failed: {e}")
-        return False
-
 
 def load_model():
     global model, pca, label_encoder
-
-    # --- Step 1: Try to download model from R2 if not present locally ---
-    if not os.path.exists(MODEL_PATH) and MODEL_URL:
-        _download_file(MODEL_URL, MODEL_PATH)
-
     if os.path.exists(MODEL_PATH):
         raw = joblib.load(MODEL_PATH)
         if isinstance(raw, dict) and "model" in raw:
@@ -90,27 +62,16 @@ def load_model():
             print(f"  PCA: {pca.n_features_in_} -> {pca.n_components_} components")
         if label_encoder:
             print(f"  Classes: {', '.join(label_encoder.classes_)}")
-        return
-
-    # --- Step 2: Auto-train if model not found (for fresh deployments) ---
-    print(f"Model not found at {MODEL_PATH}. Attempting auto-training...")
-
-    train_csv = os.path.join(_DIR, "data", "train_ISL.csv")
-
-    # Try to download training data from R2 if not present locally
-    if not os.path.exists(train_csv) and TRAIN_DATA_URL:
-        _download_file(TRAIN_DATA_URL, train_csv)
-
-    if os.path.exists(train_csv):
-        print(f"Training from {train_csv} ...")
-        from train_real import train as train_fn
-        train_fn()
-        load_model()  # Reload after training
     else:
-        print(f"WARNING: No training data found at {train_csv}. Model not available.")
-        print(f"  Set MODEL_URL env var to auto-download the model, or")
-        print(f"  set TRAIN_DATA_URL env var to auto-download training data and train.")
-
+        # Auto-train if model not found (for fresh deployments)
+        print(f"Model not found at {MODEL_PATH}. Training from CSV data...")
+        train_csv = os.path.join(os.path.dirname(__file__), "data", "train_ISL.csv")
+        if os.path.exists(train_csv):
+            from train_real import train as train_fn
+            train_fn()
+            load_model()  # Reload after training
+        else:
+            print(f"Warning: No training data found at {train_csv}. Model not available.")
 
 load_model()
 

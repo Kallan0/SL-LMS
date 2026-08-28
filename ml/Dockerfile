@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Ensure models and data directories exist at runtime
+# Create models directory (will be populated via volume or build)
 RUN mkdir -p models data
 
 # Expose port
