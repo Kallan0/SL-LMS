@@ -209,10 +209,8 @@ const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusDebugCol
 export default defineConfig(({ command, mode }) => {
   const environment = loadEnv(mode, PROJECT_ROOT, "VITE_");
   if (command === "build" && environment.VITE_USE_MOCK !== "true") {
-    for (const name of ["VITE_API_BASE_URL", "VITE_ML_BASE_URL"] as const) {
-      if (!/^https?:\/\//.test(environment[name]?.trim() || "")) {
-        throw new Error(`${name} must be set to a public service origin before building`);
-      }
+    if (!/^https?:\/\//.test(environment.VITE_API_BASE_URL?.trim() || "")) {
+      throw new Error("VITE_API_BASE_URL must be set to a public service origin before building");
     }
   }
 

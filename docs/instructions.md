@@ -55,12 +55,12 @@ Set these **Vercel build environment** variables for each environment being depl
 | Variable | Value |
 | --- | --- |
 | `VITE_API_BASE_URL` | Public HTTPS core origin, with no trailing slash or `/auth` suffix. |
-| `VITE_ML_BASE_URL` | Public HTTPS ML origin, with no trailing slash. |
+| `VITE_ML_BASE_URL` | Optional override for the public HTTPS ML origin. `frontend/.env.production` defaults to `https://sl-lms-ml.onrender.com`. |
 | `VITE_USE_MOCK` | `false` for real authentication. |
 
 Vite puts `VITE_*` values into the JavaScript bundle at build time. **Redeploy the frontend after setting or changing them.** Setting them only on the core host, or changing them without a frontend rebuild, will not affect the browser. Never put `DATABASE_URL` or `JWT_SECRET_KEY` in a `VITE_*` variable.
 
-The build now stops with a clear error if the core or ML URL is missing in real API mode. This prevents publishing a bundle that silently calls localhost. The two values must be present in the Vercel environment for the specific deployment target.
+The build stops with a clear error if the core API URL is missing in real API mode. ML is separate from authentication, so its URL does not block the build. The public ML default in `frontend/.env.production` is included in production builds unless Vercel overrides it.
 
 After deployment, open the frontend's `/login` page. In browser Developer Tools -> Network, submit the login form and check that the request URL is `https://your-core-service.example.com/auth/login`. If it points to `127.0.0.1:5000`, the Vercel variable was missing when that build was made. If it points to the ML URL, the wrong service was configured.
 
@@ -133,7 +133,6 @@ cd frontend
 npm.cmd ci
 npm.cmd run check
 $env:VITE_API_BASE_URL = 'https://sl-lms-backend.onrender.com'
-$env:VITE_ML_BASE_URL = 'https://sl-lms-ml.onrender.com'
 npx.cmd vite build --configLoader runner
 npx.cmd vitest run --config auth-vitest.config.mjs
 ```
