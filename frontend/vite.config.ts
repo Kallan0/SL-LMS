@@ -4,7 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import fs from "node:fs";
 import path from "node:path";
-import { defineConfig, type Plugin, type ViteDevServer } from "vite";
+import { defineConfig, loadEnv, type Plugin, type ViteDevServer } from "vite";
 
 
 // =============================================================================
@@ -206,7 +206,17 @@ function vitePluginStorageProxy(): Plugin {
 
 const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusDebugCollector(), vitePluginStorageProxy()];
 
-export default defineConfig({
+export default defineConfig(({ command, mode }) => {
+  const environment = loadEnv(mode, PROJECT_ROOT, "VITE_");
+  if (command === "build" && environment.VITE_USE_MOCK !== "true") {
+    for (const name of ["VITE_API_BASE_URL", "VITE_ML_BASE_URL"] as const) {
+      if (!/^https?:\/\//.test(environment[name]?.trim() || "")) {
+        throw new Error(`${name} must be set to a public service origin before building`);
+      }
+    }
+  }
+
+  return {
   plugins,
   resolve: {
     alias: {
@@ -239,4 +249,5 @@ export default defineConfig({
       deny: ["**/.*"],
     },
   },
+  };
 });

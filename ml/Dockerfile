@@ -16,4 +16,4 @@ RUN mkdir -p models data
 EXPOSE 8001
 
 # Start the server
-CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["sh", "-c", "exec python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8001}"]

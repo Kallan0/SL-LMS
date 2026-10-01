@@ -36,11 +36,12 @@ export type { Conversation, Message, ChatUser, Lesson, MentorStudent } from "@/t
  * Assessment page and WebcamTracker component — it is NOT routed through
  * this base URL.
  */
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:5000";
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:5000"
+).replace(/\/+$/, "");
 
 const JWT_STORAGE_KEY =
-  import.meta.env.VITE_JWT_STORAGE_KEY ?? "sign_language_lms_token";
+  import.meta.env.VITE_JWT_STORAGE_KEY || "sign_language_lms_token";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
@@ -115,7 +116,7 @@ export async function apiFetch<T>(
     });
 
     // ── 401 interceptor: session expired / invalid token ─────────────────
-    if (response.status === 401) {
+    if (response.status === 401 && endpoint !== "/auth/login") {
       console.warn("[api] 401 Unauthorized – clearing session");
       clearToken();
       // Redirect to login without a full navigation loop
@@ -127,8 +128,9 @@ export async function apiFetch<T>(
     if (!response.ok) {
       const errorBody = await response.json().catch(() => ({}));
       throw new Error(
-        (errorBody as { detail?: string; message?: string }).detail ??
+        (errorBody as { detail?: string; message?: string; error?: string }).detail ??
           (errorBody as { message?: string }).message ??
+          (errorBody as { error?: string }).error ??
           `HTTP ${response.status} ${response.statusText}`
       );
     }

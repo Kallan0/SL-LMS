@@ -12,6 +12,7 @@ dotenv.config();
 // 1. Configure PostgreSQL Connection Pool with SSL for Railway
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  connectionTimeoutMillis: 10000,
   ssl: {
     rejectUnauthorized: false, // Allows Railway public proxy SSL connections
   },
@@ -23,7 +24,10 @@ const prisma = new PrismaClient({ adapter });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const JWT_SECRET = process.env.JWT_SECRET_KEY || 'secret';
+const JWT_SECRET = process.env.JWT_SECRET_KEY;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET_KEY must be configured');
+}
 
 // Online users tracking (userId -> last seen timestamp)
 const onlineUsers = new Map<string, number>();
@@ -36,18 +40,20 @@ const isOnline = (userId: string) => {
 };
 
 // Middleware
-const allowedOrigins = [
-  'https://sl-lms-ten.vercel.app',
-  process.env.FRONTEND_URL 
-];
+const allowedOrigins = new Set(
+  ['https://sl-lms-ten.vercel.app', process.env.FRONTEND_URL, process.env.ALLOWED_ORIGINS]
+    .filter(Boolean)
+    .flatMap(value => value!.split(','))
+    .map(value => value.trim().replace(/\/$/, ''))
+    .filter(Boolean)
+);
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (curl, server-to-server, same-origin)
     if (!origin) return callback(null, true);
     // Allow any localhost origin in development
-    if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) return callback(null, true);
-    // Honour explicit ALLOWED_ORIGINS list
-    if (allowedOrigins && allowedOrigins.length > 0 && allowedOrigins.includes(origin)) {
+    if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return callback(null, true);
+    if (allowedOrigins.has(origin)) {
       return callback(null, true);
     }
     callback(new Error(`CORS blocked for origin: ${origin}`));
@@ -72,7 +78,7 @@ const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextF
   if (!token) return res.status(401).json({ error: 'Access token required' });
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Invalid or expired token' });
+    if (err) return res.status(401).json({ error: 'Invalid or expired token' });
     req.user = user as { id: string; email: string; role: string };
     next();
   });
@@ -84,9 +90,11 @@ const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextF
 
 // --- AUTH: REGISTER ---
 app.post('/auth/register', async (req: Request, res: Response) => {
-  const { email, username, password, role, firstName, lastName } = req.body;
+  const { email, username, password, role, firstName, lastName } = req.body ?? {};
 
-  if (!email || !password || !username) {
+  if (typeof email !== 'string' || !email.trim() ||
+      typeof password !== 'string' || !password ||
+      typeof username !== 'string' || !username.trim()) {
     return res.status(400).json({ error: 'Email, password, and username are required' });
   }
 
@@ -97,7 +105,7 @@ app.post('/auth/register', async (req: Request, res: Response) => {
         email,
         username,
         password: hashedPassword,
-        role: role === 'mentor' ? 'MENTOR' : 'STUDENT',
+        role: typeof role === 'string' && role.toUpperCase() === 'MENTOR' ? 'MENTOR' : 'STUDENT',
         firstName,
         lastName,
       },
@@ -115,7 +123,10 @@ app.post('/auth/register', async (req: Request, res: Response) => {
 
 // --- AUTH: LOGIN ---
 app.post('/auth/login', async (req: Request, res: Response) => {
-  const { email, password } = req.body;
+  const { email, password } = req.body ?? {};
+  if (typeof email !== 'string' || !email.trim() || typeof password !== 'string' || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
   try {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user || !(await bcrypt.compare(password, user.password))) {
@@ -140,6 +151,7 @@ app.post('/auth/login', async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
+    console.error('[auth/login]', err);
     res.status(500).json({ error: 'Server error during authentication' });
   }
 });
@@ -605,6 +617,16 @@ app.get('/chat/unread', authenticateToken, async (req: AuthenticatedRequest, res
 
 app.get('/health', async (_req: Request, res: Response) => {
   res.json({ status: 'ok', service: 'core-backend' });
+});
+
+app.get('/health/ready', async (_req: Request, res: Response) => {
+  try {
+    await prisma.user.count();
+    res.json({ status: 'ok', service: 'core-backend', database: 'ready' });
+  } catch (err) {
+    console.error('[health/ready] Database check failed', err);
+    res.status(503).json({ status: 'unavailable', service: 'core-backend', database: 'unavailable' });
+  }
 });
 
 app.listen(PORT, () => console.log(`Core Backend running on port ${PORT}`));

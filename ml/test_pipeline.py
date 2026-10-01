@@ -347,8 +347,8 @@ try:
 
         # Test /cv/predict
         try:
-            test_landmarks = np.random.rand(126).tolist()
-            payload = json.dumps({"landmarks": test_landmarks}).encode()
+            test_pixels = np.random.rand(10000).tolist()
+            payload = json.dumps({"pixels": test_pixels}).encode()
             req = urllib.request.Request(
                 f"{ML_URL}/cv/predict",
                 data=payload,
@@ -366,8 +366,8 @@ try:
 
         # Test /verify-sign
         try:
-            test_landmarks = np.random.rand(126).tolist()
-            payload = json.dumps({"target_sign": "A", "features": test_landmarks}).encode()
+            test_pixels = np.random.rand(10000).tolist()
+            payload = json.dumps({"target_sign": "A", "pixels": test_pixels}).encode()
             req = urllib.request.Request(
                 f"{ML_URL}/verify-sign",
                 data=payload,

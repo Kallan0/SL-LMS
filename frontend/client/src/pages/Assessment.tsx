@@ -455,7 +455,7 @@ export default function Assessment() {
   };
 
   var submitToLeaderboard = async function () {
-    var token = localStorage.getItem("sign_language_lms_token");
+    var token = localStorage.getItem(import.meta.env.VITE_JWT_STORAGE_KEY || "sign_language_lms_token");
     if (!token) return;
     try {
       var lessonsRes = await fetch(API_URL + "/lessons");

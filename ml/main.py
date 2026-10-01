@@ -11,31 +11,17 @@ load_dotenv()
 
 app = FastAPI(title="ISL Sign Language ML Inference Service")
 
-raw_origins = os.getenv("ALLOWED_ORIGINS", "*")
-allowed_origins_list = [o.strip() for o in raw_origins.split(",") if o.strip() and o.strip() != "*"]
-
-import re
-def _is_localhost(o: str) -> bool:
-    return bool(re.match(r"^https?://localhost(:\d+)?$$", o))
-
-def _allow_origin(origin: str) -> str:
-    if not origin:
-        return "*"
-    if not allowed_origins_list:
-        if _is_localhost(origin):
-            return origin
-        return origin
-    if origin in allowed_origins_list:
-        return origin
-    if _is_localhost(origin):
-        return origin
-    return allowed_origins_list[0] if allowed_origins_list else "*"
+allowed_origins_list = [
+    origin.strip().rstrip("/")
+    for origin in os.getenv("ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_origin_regex=r"^https?://localhost(:\d+)?$$",
-    allow_credentials=True,
+    allow_origins=allowed_origins_list,
+    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

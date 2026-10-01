@@ -213,7 +213,7 @@ function generateToken(): string {
   return `mock-jwt-${Date.now()}-${tokenCounter}`;
 }
 
-const JWT_STORAGE_KEY = import.meta.env.VITE_JWT_STORAGE_KEY ?? "sign_language_lms_token";
+const JWT_STORAGE_KEY = import.meta.env.VITE_JWT_STORAGE_KEY || "sign_language_lms_token";
 
 function storeToken(token: string): void {
   try { localStorage.setItem(JWT_STORAGE_KEY, token); } catch { /* ignore */ }
@@ -262,7 +262,7 @@ export class MockApiService implements IApiService {
       username,
       firstName,
       lastName,
-      role: role === "mentor" ? "MENTOR" : "STUDENT",
+      role: role.toUpperCase() === "MENTOR" ? "MENTOR" : "STUDENT",
       xp: 0,
       streak: 0,
     };

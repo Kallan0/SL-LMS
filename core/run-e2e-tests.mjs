@@ -211,9 +211,9 @@ async function testAuthentication() {
   await test("GET /users/me - invalid token", async () => {
     const { status } = await api("/users/me", {
       token: "invalid-token-12345",
-      expectStatus: 403,
+      expectStatus: 401,
     });
-    assertEqual(status, 403);
+    assertEqual(status, 401);
   });
   
   return { authToken, userId };

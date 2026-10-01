@@ -97,8 +97,8 @@ export function useAuth(): UseAuthReturn {
       };
 
       const user = response.user;
-      if (!user) {
-        throw new Error("Login succeeded but no user data was returned");
+      if (!user || !authToken.access_token) {
+        throw new Error("Login succeeded but the session data was incomplete");
       }
 
       setState((prev) => ({
@@ -133,23 +133,19 @@ export function useAuth(): UseAuthReturn {
       try {
         const response = await apiService.register(email, username, password, role, firstName, lastName);
 
-        // Registration may or may not return a token/user — handle both cases
-        if (response?.user) {
-          setState((prev) => ({
-            ...prev,
-            user: { ...response.user, id: String(response.user.id) },
-            token: response.token ?? null,
-            isAuthenticated: !!response.token,
-            isLoading: false,
-            error: null,
-          }));
-        } else {
-          setState((prev) => ({
-            ...prev,
-            isLoading: false,
-            error: null,
-          }));
-        }
+        // The core registration endpoint creates an account without a session.
+        // Log in before Register redirects to a protected route.
+        const session = response?.token?.access_token && response?.user
+          ? response
+          : await apiService.login(email, password);
+        setState((prev) => ({
+          ...prev,
+          user: { ...session.user, id: String(session.user.id) },
+          token: session.token,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+        }));
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Registration not successful";
         console.error("Registration Error:", error);

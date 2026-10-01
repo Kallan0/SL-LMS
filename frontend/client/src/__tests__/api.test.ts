@@ -131,7 +131,7 @@ describe("API Service Integration", () => {
       const { status } = await apiFetch("/users/me", {
         headers: { Authorization: "Bearer invalid-token-12345" },
       });
-      expect(status).toBe(403);
+      expect(status).toBe(401);
     });
   });
 
